@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { friendlyError } from '../lib/errors'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { friendlyError } from './errors'
 
 type Member = { id: string; role: string; profiles: { name: string | null; email: string | null } | null }
 

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { friendlyError } from '../lib/errors'
-import { moneyAuto } from '../lib/format'
-import { marginTone, pct } from '../lib/pricing'
-import type { FormatCost, PriceMargin, ProductCategory } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { friendlyError } from './errors'
+import { moneyAuto } from './format'
+import { marginTone, pct } from './pricing'
+import type { FormatCost, PriceMargin, ProductCategory } from './types'
 
 /** Tabela de preços: uma linha por produto/formato, uma coluna por tipo de preço. */
 export function PriceTable() {

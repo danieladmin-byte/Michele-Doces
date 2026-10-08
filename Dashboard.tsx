@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { brl, formatQty, num } from '../lib/format'
-import type { BaseUnit } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { brl, formatQty, num } from './format'
+import type { BaseUnit } from './types'
 
 type Summary = { month_sales: number; estimated_profit: number; open_quotes: number; stock_value: number }
 type Low = { id: string; name: string; unit: BaseUnit; current_stock: number; minimum_stock: number }

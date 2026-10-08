@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { Dialog } from '../components/Dialog'
-import { CostBuilder } from '../components/CostBuilder'
-import { errorCode, friendlyError } from '../lib/errors'
-import { moneyAuto, num, parseNum } from '../lib/format'
-import type { CostLine, ExtraCost, Ingredient, Recipe, RecipeCost } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { Dialog } from './Dialog'
+import { CostBuilder } from './CostBuilder'
+import { errorCode, friendlyError } from './errors'
+import { moneyAuto, num, parseNum } from './format'
+import type { CostLine, ExtraCost, Ingredient, Recipe, RecipeCost } from './types'
 
 type RawItem = Omit<CostLine, 'recipe_id'> & { sub_recipe_id: string | null }
 

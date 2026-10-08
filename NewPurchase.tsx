@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { friendlyError } from '../lib/errors'
-import { FAMILY_UNITS, UNIT_LABEL, brl, brlPrecise, parseNum, todayISO } from '../lib/format'
-import type { Ingredient, PurchaseUnit, Supplier } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { friendlyError } from './errors'
+import { FAMILY_UNITS, UNIT_LABEL, brl, brlPrecise, parseNum, todayISO } from './format'
+import type { Ingredient, PurchaseUnit, Supplier } from './types'
 
 type Line = { key: number; ingredientId: string; qty: string; unit: PurchaseUnit; total: string }
 

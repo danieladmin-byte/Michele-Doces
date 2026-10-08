@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from './supabase'
-import type { Company, Role } from '../types'
+import type { Company, Role } from './types'
 
 type Membership = { company: Company; role: Role }
 

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { Dialog } from '../components/Dialog'
-import { UnitQty } from '../components/UnitQty'
-import { errorCode, friendlyError } from '../lib/errors'
-import { FAMILY_UNITS, formatDateTime, formatQty, parseNum, toBase } from '../lib/format'
-import type { Ingredient, MovementType, PurchaseUnit, StockMovement } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { Dialog } from './Dialog'
+import { UnitQty } from './UnitQty'
+import { errorCode, friendlyError } from './errors'
+import { FAMILY_UNITS, formatDateTime, formatQty, parseNum, toBase } from './format'
+import type { Ingredient, MovementType, PurchaseUnit, StockMovement } from './types'
 
 const TYPE_LABEL: Record<MovementType, string> = {
   PURCHASE: 'Compra',

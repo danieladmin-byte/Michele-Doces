@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { friendlyError } from '../lib/errors'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { friendlyError } from './errors'
+import logoImg from './logo.jpg'
 
 export function Onboarding() {
   const { reload, selectCompany, signOut, session } = useAuth()
@@ -28,7 +29,7 @@ export function Onboarding() {
   return (
     <div className="auth">
       <div className="auth-hero">
-        <img src="/logo.jpg" alt="" className="auth-logo" />
+        <img src={logoImg} alt="" className="auth-logo" />
         <h1>Vamos preparar sua confeitaria</h1>
         <p>Dê um nome ao seu negócio. Você poderá completar logo, endereço e dados de pagamento depois, em Configurações.</p>
       </div>

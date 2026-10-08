@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../lib/auth'
-import { supabase } from '../lib/supabase'
+import { useAuth } from './auth'
+import { supabase } from './supabase'
+import logoImg from './logo.jpg'
 
 const NAV = [
   { to: '/', label: 'Início', icon: '◐', end: true },
@@ -25,7 +26,7 @@ export function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <img src={logoUrl ?? '/logo.jpg'} alt="" className="brand-logo" />
+          <img src={logoUrl ?? logoImg} alt="" className="brand-logo" />
           <div className="brand-text">
             {memberships.length > 1 ? (
               <select

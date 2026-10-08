@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
-import { friendlyError } from '../lib/errors'
+import { supabase } from './supabase'
+import { friendlyError } from './errors'
+import logoImg from './logo.jpg'
 
 export function Login() {
   const [mode, setMode] = useState<'in' | 'up'>('in')
@@ -43,7 +44,7 @@ export function Login() {
   return (
     <div className="auth">
       <div className="auth-hero">
-        <img src="/logo.jpg" alt="" className="auth-logo" />
+        <img src={logoImg} alt="" className="auth-logo" />
         <h1>Quanto custa, de verdade, cada doce que você vende?</h1>
         <p>
           Registre suas compras, veja o custo de cada receita e saiba sua margem antes de fechar um orçamento.

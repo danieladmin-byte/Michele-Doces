@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { friendlyError } from '../lib/errors'
-import { UNIT_LABEL, brl, formatDate, num } from '../lib/format'
-import type { Purchase, PurchaseItem, Supplier } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { friendlyError } from './errors'
+import { UNIT_LABEL, brl, formatDate, num } from './format'
+import type { Purchase, PurchaseItem, Supplier } from './types'
 
 export function Purchases() {
   const { company } = useAuth()

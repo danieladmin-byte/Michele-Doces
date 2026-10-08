@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../lib/auth'
-import { useToast } from '../components/Toast'
-import { Dialog } from '../components/Dialog'
-import { friendlyError } from '../lib/errors'
-import { moneyAuto } from '../lib/format'
-import type { RecipeCost } from '../types'
+import { supabase } from './supabase'
+import { useAuth } from './auth'
+import { useToast } from './Toast'
+import { Dialog } from './Dialog'
+import { friendlyError } from './errors'
+import { moneyAuto } from './format'
+import type { RecipeCost } from './types'
 
 export function Recipes() {
   const { company } = useAuth()

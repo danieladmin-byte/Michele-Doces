@@ -1,4 +1,4 @@
-import type { CostLine, ExtraCost, Ingredient, RecipeCost, Section } from '../types'
+import type { CostLine, ExtraCost, Ingredient, RecipeCost, Section } from './types'
 
 /** Reparto del costo en las tres secciones que ve el usuario. */
 export type Parts = { product: number; packaging: number; labor: number }

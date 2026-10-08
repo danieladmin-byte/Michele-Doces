@@ -1,4 +1,4 @@
-import type { BaseUnit, PurchaseUnit } from '../types'
+import type { BaseUnit, PurchaseUnit } from './types'
 
 export const UNIT_LABEL: Record<PurchaseUnit, string> = {
   g: 'g',

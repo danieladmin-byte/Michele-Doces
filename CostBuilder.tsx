@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from './supabase'
 import { useToast } from './Toast'
 import { Dialog } from './Dialog'
 import { UnitQty } from './UnitQty'
-import { friendlyError } from '../lib/errors'
-import { FAMILY_UNITS, formatQty, moneyAuto, num, parseNum, toBase } from '../lib/format'
-import { laborFromTime, lineParts, totalOf } from '../lib/costing'
-import type { Basis, CostLine, ExtraCost, ExtraType, Ingredient, PurchaseUnit, RecipeCost, Section } from '../types'
+import { friendlyError } from './errors'
+import { FAMILY_UNITS, formatQty, moneyAuto, num, parseNum, toBase } from './format'
+import { laborFromTime, lineParts, totalOf } from './costing'
+import type { Basis, CostLine, ExtraCost, ExtraType, Ingredient, PurchaseUnit, RecipeCost, Section } from './types'
 
 type Owner = 'recipe' | 'product'
 

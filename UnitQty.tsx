@@ -1,5 +1,5 @@
-import type { BaseUnit, PurchaseUnit } from '../types'
-import { FAMILY_UNITS, UNIT_LABEL } from '../lib/format'
+import type { BaseUnit, PurchaseUnit } from './types'
+import { FAMILY_UNITS, UNIT_LABEL } from './format'
 
 type Props = {
   base: BaseUnit

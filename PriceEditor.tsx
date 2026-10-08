@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase } from './supabase'
 import { useToast } from './Toast'
 import { Dialog } from './Dialog'
-import { friendlyError } from '../lib/errors'
-import { moneyAuto, num, parseNum } from '../lib/format'
-import { calcPrice, marginTone, pct, roundUp, suggestedPrice, times } from '../lib/pricing'
-import type { FormatCost, ProductPrice } from '../types'
+import { friendlyError } from './errors'
+import { moneyAuto, num, parseNum } from './format'
+import { calcPrice, marginTone, pct, roundUp, suggestedPrice, times } from './pricing'
+import type { FormatCost, ProductPrice } from './types'
 
 type Props = {
   companyId: string
