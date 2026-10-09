@@ -67,6 +67,17 @@ export function QuoteDetail() {
     navigate(`/pedidos/${data as string}`)
   }
 
+  async function remove() {
+    if (!quote) return
+    if (!window.confirm(`Excluir o orçamento #${String(quote.number).padStart(2, '0')} para sempre? Isso não pode ser desfeito.`)) return
+    setBusy(true)
+    const { error } = await supabase.rpc('delete_quote', { p_quote_id: quote.id })
+    setBusy(false)
+    if (error) return toast(friendlyError(error), 'error')
+    toast('Orçamento excluído')
+    navigate('/orcamentos')
+  }
+
   async function pdf() {
     if (!quote || !company) return
     setPdfBusy(true)
@@ -190,6 +201,13 @@ export function QuoteDetail() {
           </div>
         ) : (
           <p className="muted">Este orçamento está {st.label.toLowerCase()}.</p>
+        )}
+        {!orderId && (
+          <div className="block-add" style={{ marginTop: 14 }}>
+            <button className="btn btn-danger" disabled={busy} onClick={() => void remove()}>
+              Excluir orçamento
+            </button>
+          </div>
         )}
       </section>
     </>

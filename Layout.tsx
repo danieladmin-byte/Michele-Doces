@@ -1,10 +1,11 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from './auth'
 import { supabase } from './supabase'
-import logoImg from './logo.jpg'
+import logoImg from './logo-transparente.png'
 
 const NAV = [
   { to: '/', label: 'Início', icon: '◐', end: true },
+  { to: '/cardapio', label: 'Cardápio do dia', short: 'Cardápio', icon: '☀' },
   { to: '/ingredientes', label: 'Ingredientes', short: 'Insumos', icon: '◍' },
   { to: '/receitas', label: 'Receitas', icon: '❦' },
   { to: '/produtos', label: 'Produtos', icon: '◆' },
@@ -28,7 +29,9 @@ export function Layout() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <img src={logoUrl ?? logoImg} alt="" className="brand-logo" />
+          <div className="brand-card">
+            <img src={logoUrl ?? logoImg} alt={company?.name ?? 'Logo'} className="brand-logo" />
+          </div>
           <div className="brand-text">
             {memberships.length > 1 ? (
               <select

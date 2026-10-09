@@ -15,6 +15,8 @@ export type Company = {
   quote_terms: string | null
   /** Existe después de la migración 004. */
   instagram?: string | null
+  /** Existe después de la migración 007: QR PIX que se muestra en el cardápio. */
+  menu_pix_id?: string | null
 }
 
 export type Category = { id: string; name: string }
@@ -266,3 +268,6 @@ export type Order = {
   notes: string | null
   created_at: string
 }
+
+export type PixAccount = { id: string; name: string; image_path: string }
+export type MenuItem = { id: string; price_id: string }

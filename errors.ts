@@ -26,6 +26,7 @@ const MESSAGES: Record<string, string> = {
   QUOTE_NOT_FOUND: 'Orçamento não encontrado.',
   QUOTE_NOT_EDITABLE: 'Só dá para editar orçamentos em rascunho.',
   QUOTE_ALREADY_APPROVED: 'Este orçamento já foi aprovado.',
+  QUOTE_HAS_ORDER: 'Este orçamento já virou pedido e não pode ser excluído.',
   QUOTE_NOT_APPROVABLE: 'Este orçamento não pode mais ser aprovado.',
 }
 

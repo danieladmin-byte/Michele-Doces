@@ -77,8 +77,15 @@ function circleCrop(img: HTMLImageElement, size = 480): string {
   g.clip()
   g.fillStyle = '#ffffff'
   g.fillRect(0, 0, size, size)
-  const side = Math.min(img.naturalWidth, img.naturalHeight)
-  g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size)
+  const w = img.naturalWidth
+  const h = img.naturalHeight
+  if (w === h) {
+    g.drawImage(img, 0, 0, size, size)
+  } else {
+    // Logo retangular (ex.: enviado em Configurações): cabe inteiro dentro do círculo, sem cortar.
+    const k = (size * 0.92) / Math.hypot(w, h)
+    g.drawImage(img, (size - w * k) / 2, (size - h * k) / 2, w * k, h * k)
+  }
   return c.toDataURL('image/png')
 }
 

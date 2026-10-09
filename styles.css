@@ -58,6 +58,8 @@ code { background: var(--pistache); padding: 0.1em 0.35em; border-radius: 4px; f
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-primary { background: var(--yellow); border-color: var(--cacao); color: var(--cacao); box-shadow: 2px 2px 0 var(--cacao); }
 .btn-primary:hover:not(:disabled) { background: var(--yellow-deep); }
+.btn-danger { color: var(--framboesa); border-color: var(--framboesa); }
+.btn-danger:hover:not(:disabled) { background: var(--framboesa-soft); }
 .btn-small { min-height: 36px; padding: 6px 14px; font-size: 0.9rem; }
 .btn-block { width: 100%; }
 .link-btn { font: inherit; background: none; border: 0; color: var(--framboesa); cursor: pointer; padding: 8px 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
@@ -93,20 +95,21 @@ textarea { resize: vertical; }
 /* ===== Estrutura ===== */
 .shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
 .sidebar {
-  background: var(--cacao); color: #f3ece8; padding: 24px 16px; display: flex; flex-direction: column; gap: 28px;
-  position: sticky; top: 0; height: 100vh;
+  background: var(--cacao); color: #f3ece8; padding: 18px 16px; display: flex; flex-direction: column; gap: 16px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-.brand { display: flex; gap: 12px; align-items: center; padding: 0 8px; }
+.brand { display: flex; flex-direction: column; gap: 10px; align-items: stretch; padding: 0 8px; }
+.brand-card { background: #fff; border-radius: 18px; padding: 10px 12px; border: 2px solid var(--yellow); }
 .brand-mark { font-size: 2rem; }
-.brand-logo { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: #000; border: 2px solid var(--yellow); }
-.brand-text { display: flex; flex-direction: column; min-width: 0; }
+.brand-logo { display: block; width: 100%; height: auto; max-height: 112px; object-fit: contain; }
+.brand-text { display: flex; flex-direction: column; min-width: 0; text-align: center; }
 .brand-text strong { font-family: var(--font-display); font-size: 1.1rem; overflow-wrap: anywhere; }
 .brand-text span { font-size: 0.8rem; color: #cfcab9; }
 .brand-select { background: transparent; color: #fff; border: 1px solid #7c6862; min-height: 36px; padding: 4px 8px; }
 .brand-select option { color: var(--cacao); }
-.nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.nav { display: flex; flex-direction: column; gap: 2px; flex: 1 0 auto; }
 .nav-link {
-  display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px;
+  display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 10px;
   color: #f3ece8; text-decoration: none; font-weight: 500;
 }
 .nav-link:hover { background: rgba(255, 255, 255, 0.08); }
@@ -202,10 +205,10 @@ textarea { resize: vertical; }
 .auth-hero h1 { font-size: clamp(2rem, 1.4rem + 2.6vw, 3.4rem); max-width: 14em; }
 .auth-hero p { max-width: 32em; color: #d8cac4; font-size: 1.05rem; }
 .auth-mark { font-size: 3rem; }
-.auth-logo { width: 140px; height: 140px; border-radius: 50%; object-fit: cover; border: 3px solid var(--yellow); background: #000; }
+.auth-logo { width: 150px; height: 150px; border-radius: 50%; object-fit: contain; border: 3px solid var(--yellow); background: #fff; }
 .auth-form { align-self: center; justify-self: center; width: min(400px, calc(100% - 32px)); display: grid; gap: 16px; padding: 32px 0; }
 .logo-row { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
-.logo-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); background: #fff; }
+.logo-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: contain; border: 1px solid var(--line); background: #fff; }
 .logo-empty { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: var(--pistache); font-size: 0.8rem; color: var(--cacao-mute); }
 .members { margin-top: 48px; max-width: 760px; }
 
@@ -460,3 +463,55 @@ h1 .pill-status { font-family: var(--font-body); margin-left: 8px; }
 .q-pick-thumb { display: flex; align-items: center; gap: 10px; }
 .pt-name { display: inline-flex; align-items: center; gap: 10px; }
 .q-pick-field { flex: 1 1 auto; min-width: 0; }
+
+/* Cardápio do dia */
+.thumb.md { width: 84px; height: 84px; border-radius: 20px; font-size: 1.9rem; }
+.menu-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; }
+.menu-row { display: flex; align-items: center; gap: 14px; background: var(--white); border: 1.5px solid var(--cacao); border-radius: 18px; padding: 10px 14px 10px 10px; }
+.menu-name { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.menu-name strong { font-size: 1.1rem; overflow-wrap: anywhere; }
+.menu-name small { color: var(--cacao-mute); }
+.menu-price { font-weight: 800; font-size: 1.2rem; white-space: nowrap; }
+.menu-tools { margin: 6px 0 22px; }
+.pix-panel { margin-top: 22px; }
+.pix-figure { margin: 0 0 14px; display: grid; justify-items: center; gap: 8px; }
+.pix-figure figcaption { font-weight: 600; }
+.pix-img { display: block; width: min(280px, 100%); height: auto; background: #fff; border: 1.5px solid var(--cacao); border-radius: 14px; padding: 8px; }
+.pix-preview { margin: 6px auto 14px; max-height: 260px; width: auto; max-width: 100%; }
+.pix-empty { border: 2px dashed var(--line); border-radius: 14px; padding: 28px 16px; text-align: center; color: var(--cacao-mute); margin-bottom: 14px; }
+.pix-controls { display: grid; gap: 12px; }
+.pick-list { list-style: none; margin: 0 0 14px; padding: 0; max-height: 52vh; overflow: auto; display: grid; gap: 6px; }
+.pick-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 12px; cursor: pointer; }
+.pick-row:hover { background: var(--pistache); }
+.pick-row.is-off { opacity: 0.55; cursor: default; }
+.pick-row input { width: 22px; height: 22px; flex: none; }
+.pick-name { flex: 1 1 auto; min-width: 0; display: grid; }
+.pick-name small { color: var(--cacao-mute); }
+@media (max-width: 560px) {
+  .thumb.md { width: 72px; height: 72px; border-radius: 18px; }
+  .menu-row { gap: 12px; }
+  .menu-price { font-size: 1.1rem; }
+}
+
+.menu-brand { display: flex; justify-content: center; margin: 0 0 6px; }
+.menu-brand img { width: 150px; max-width: 60%; height: auto; }
+.menu-brand.big img { width: 260px; }
+
+/* Cardápio: fundo branco (mais barato de imprimir); formas, fotos e cores continuam normais. */
+body:has(.menu-page) { background: #fff; }
+.menu-page .empty-block { background: #fff; }
+@media print {
+  @page { margin: 12mm; }
+  body, body:has(.menu-page) { background: #fff !important; }
+  .sidebar, .no-print, .toast-stack, .toasts { display: none !important; }
+  .shell { display: block; }
+  .main { padding: 0; max-width: none; }
+  .menu-row, .pix-img, .thumb, .menu-brand img, .pix-panel { -webkit-print-color-adjust: exact; print-color-adjust: exact; break-inside: avoid; }
+  .pix-panel { box-shadow: none; margin-top: 12px; padding-top: 6px; }
+  .menu-brand img, .menu-brand.big img { width: 120px; }
+  .menu-row { padding: 6px 12px 6px 6px; }
+  .menu-list { gap: 6px; }
+  .pix-img { width: 190px; }
+  .pix-figure { margin-bottom: 0; }
+  .page-head { margin-bottom: 10px; }
+}
