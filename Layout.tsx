@@ -9,12 +9,14 @@ const NAV = [
   { to: '/receitas', label: 'Receitas', icon: '❦' },
   { to: '/produtos', label: 'Produtos', icon: '◆' },
   { to: '/tabela', label: 'Preços', icon: '％' },
+  { to: '/clientes', label: 'Clientes', icon: '☺' },
+  { to: '/orcamentos', label: 'Orçamentos', short: 'Orçam.', icon: '✎' },
+  { to: '/pedidos', label: 'Pedidos', icon: '▤' },
   { to: '/compras', label: 'Compras', icon: '❖' },
   { to: '/movimentacoes', label: 'Movimentações', short: 'Estoque', icon: '⇅' },
   { to: '/configuracoes', label: 'Configurações', short: 'Ajustes', icon: '✱' },
 ]
 
-const SOON = ['Orçamentos']
 
 export function Layout() {
   const { company, session, signOut, memberships, selectCompany } = useAuth()
@@ -58,17 +60,6 @@ export function Layout() {
               <span className="nav-short">{n.short ?? n.label}</span>
             </NavLink>
           ))}
-          <div className="nav-soon">
-            {SOON.map((s) => (
-              <span key={s} className="nav-link nav-link-off" aria-disabled="true">
-                <span className="nav-icon" aria-hidden="true">
-                  ·
-                </span>
-                {s}
-                <small>em breve</small>
-              </span>
-            ))}
-          </div>
         </nav>
 
         <div className="sidebar-foot">

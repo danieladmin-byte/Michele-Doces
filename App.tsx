@@ -14,6 +14,12 @@ import { PriceTable } from './PriceTable'
 import { Purchases } from './Purchases'
 import { NewPurchase } from './NewPurchase'
 import { Movements } from './Movements'
+import { Customers } from './Customers'
+import { Quotes } from './Quotes'
+import { QuoteEditor } from './QuoteEditor'
+import { QuoteDetail } from './QuoteDetail'
+import { Orders } from './Orders'
+import { OrderDetail } from './OrderDetail'
 import { Settings } from './Settings'
 
 export default function App() {
@@ -47,6 +53,13 @@ export default function App() {
         <Route path="produtos" element={<Products />} />
         <Route path="produtos/:id" element={<ProductDetail />} />
         <Route path="tabela" element={<PriceTable />} />
+        <Route path="clientes" element={<Customers />} />
+        <Route path="orcamentos" element={<Quotes />} />
+        <Route path="orcamentos/novo" element={<QuoteEditor />} />
+        <Route path="orcamentos/:id" element={<QuoteDetail />} />
+        <Route path="orcamentos/:id/editar" element={<QuoteEditor />} />
+        <Route path="pedidos" element={<Orders />} />
+        <Route path="pedidos/:id" element={<OrderDetail />} />
         <Route path="compras" element={<Purchases />} />
         <Route path="compras/nova" element={<NewPurchase />} />
         <Route path="movimentacoes" element={<Movements />} />

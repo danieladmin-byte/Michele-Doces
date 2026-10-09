@@ -111,11 +111,11 @@ export function RecipeDetail() {
         </p>
       </header>
 
-      <section className="summary-strip" aria-label="Custo da tanda">
+      <section className="summary-strip" aria-label="Custo da receita">
         <div><span>Produto</span><strong>{moneyAuto(total?.cost_product)}</strong></div>
         <div><span>Embalagem</span><strong>{moneyAuto(total?.cost_packaging)}</strong></div>
         <div><span>Mão de obra</span><strong>{moneyAuto(total?.cost_labor)}</strong></div>
-        <div className="is-total"><span>Custo da tanda</span><strong>{moneyAuto(total?.total_cost)}</strong></div>
+        <div className="is-total"><span>Custo da receita</span><strong>{moneyAuto(total?.total_cost)}</strong></div>
       </section>
 
       <CostBuilder

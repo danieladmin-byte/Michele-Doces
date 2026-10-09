@@ -16,6 +16,7 @@ export function Settings() {
     document: '',
     email: '',
     phone: '',
+    instagram: '',
     address: '',
     payment_info: '',
     quote_terms: '',
@@ -31,6 +32,7 @@ export function Settings() {
       document: company.document ?? '',
       email: company.email ?? '',
       phone: company.phone ?? '',
+      instagram: company.instagram ?? '',
       address: company.address ?? '',
       payment_info: company.payment_info ?? '',
       quote_terms: company.quote_terms ?? '',
@@ -56,6 +58,8 @@ export function Settings() {
     const clean = Object.fromEntries(
       Object.entries(form).map(([k, v]) => [k, v.trim() === '' && k !== 'name' ? null : v.trim()]),
     )
+    // 'instagram' só existe depois da migração 004: sem ela, não enviamos esse campo
+    if (!('instagram' in company)) delete clean.instagram
     const { error } = await supabase.from('companies').update(clean).eq('id', company.id)
     setBusy(false)
     if (error) return toast(friendlyError(error), 'error')
@@ -119,6 +123,12 @@ export function Settings() {
               <label htmlFor="s-phone">Telefone / WhatsApp</label>
               <input id="s-phone" value={form.phone} onChange={set('phone')} />
             </div>
+            {company && 'instagram' in company && (
+              <div className="field">
+                <label htmlFor="s-ig">Instagram (aparece no PDF)</label>
+                <input id="s-ig" value={form.instagram} onChange={set('instagram')} placeholder="@artesanaismicheledoces" />
+              </div>
+            )}
             <div className="field">
               <label htmlFor="s-email">E-mail</label>
               <input id="s-email" type="email" value={form.email} onChange={set('email')} />
@@ -133,8 +143,9 @@ export function Settings() {
             <textarea id="s-pay" rows={3} value={form.payment_info} onChange={set('payment_info')} placeholder="Ex.: Chave Pix, banco, agência e conta" />
           </div>
           <div className="field">
-            <label htmlFor="s-terms">Observações padrão do orçamento</label>
-            <textarea id="s-terms" rows={3} value={form.quote_terms} onChange={set('quote_terms')} />
+            <label htmlFor="s-terms">Termos e condições do PDF (uma linha por item)</label>
+            <textarea id="s-terms" rows={3} value={form.quote_terms} onChange={set('quote_terms')} placeholder={'50% Antecipado\n50% na Entrega'} />
+            <small className="hint">Se deixar vazio, o PDF usa “50% Antecipado” e “50% na Entrega”.</small>
           </div>
         </fieldset>
 

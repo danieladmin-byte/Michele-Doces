@@ -150,7 +150,7 @@ function PriceRow({ price, format, onChanged }: { price: ProductPrice; format: F
           <dd>{calc ? moneyAuto(calc.per100.price) : '—'}</dd>
         </div>
         <div>
-          <dt>Lucro da tanda</dt>
+          <dt>Lucro da receita</dt>
           <dd>{calc ? moneyAuto(calc.batchProfit) : '—'}</dd>
         </div>
       </dl>
@@ -212,7 +212,7 @@ function Sensitivity({ unitCost, unitsPerBatch }: { unitCost: number; unitsPerBa
               <span>{pct(m)}</span>
               <strong>{moneyAuto(roundUp(unit, 0.05))}</strong>
               <small>
-                lucro da tanda {moneyAuto((roundUp(unit, 0.05) - unitCost) * unitsPerBatch)}
+                lucro da receita {moneyAuto((roundUp(unit, 0.05) - unitCost) * unitsPerBatch)}
               </small>
             </div>
           )

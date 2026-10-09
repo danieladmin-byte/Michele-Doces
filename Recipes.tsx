@@ -44,7 +44,7 @@ export function Recipes() {
       <header className="page-head with-action">
         <div>
           <h1>Receitas</h1>
-          <p className="sub">O custo de cada tanda, separado em produto, embalagem e mão de obra.</p>
+          <p className="sub">O custo de cada receita, separado em produto, embalagem e mão de obra.</p>
         </div>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>
           Nova receita
@@ -76,7 +76,7 @@ export function Recipes() {
                 <th className="num">Produto</th>
                 <th className="num">Embalagem</th>
                 <th className="num">Mão de obra</th>
-                <th className="num">Custo da tanda</th>
+                <th className="num">Custo da receita</th>
               </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@ export function Recipes() {
                   <td data-label="Produto" className="num">{moneyAuto(r.cost_product)}</td>
                   <td data-label="Embalagem" className="num">{moneyAuto(r.cost_packaging)}</td>
                   <td data-label="Mão de obra" className="num">{moneyAuto(r.cost_labor)}</td>
-                  <td data-label="Custo da tanda" className="num strong">{moneyAuto(r.total_cost)}</td>
+                  <td data-label="Custo da receita" className="num strong">{moneyAuto(r.total_cost)}</td>
                 </tr>
               ))}
             </tbody>

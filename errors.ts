@@ -17,6 +17,16 @@ const MESSAGES: Record<string, string> = {
   PRODUCT_WITHOUT_FORMAT: 'O produto não tem um formato ativo.',
   PRODUCT_WITHOUT_PRICE: 'O produto não tem preço cadastrado.',
   INVALID_NAME: 'Informe um nome.',
+  QUOTE_WITHOUT_ITEMS: 'Adicione ao menos um item ao orçamento.',
+  INVALID_AMOUNT: 'Desconto ou frete inválido.',
+  INVALID_CUSTOMER: 'Cliente inválido.',
+  INVALID_PRODUCT: 'Produto inválido ou inativo.',
+  ITEM_WITHOUT_DESCRIPTION: 'Todo item precisa de uma descrição.',
+  DISCOUNT_EXCEEDS_TOTAL: 'O desconto é maior que o total.',
+  QUOTE_NOT_FOUND: 'Orçamento não encontrado.',
+  QUOTE_NOT_EDITABLE: 'Só dá para editar orçamentos em rascunho.',
+  QUOTE_ALREADY_APPROVED: 'Este orçamento já foi aprovado.',
+  QUOTE_NOT_APPROVABLE: 'Este orçamento não pode mais ser aprovado.',
 }
 
 export function errorCode(err: unknown): string | null {

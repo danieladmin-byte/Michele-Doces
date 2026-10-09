@@ -13,6 +13,8 @@ export type Company = {
   address: string | null
   payment_info: string | null
   quote_terms: string | null
+  /** Existe después de la migración 004. */
+  instagram?: string | null
 }
 
 export type Category = { id: string; name: string }
@@ -129,6 +131,7 @@ export type Product = {
   category_id: string | null
   sale_unit: string
   active: boolean
+  image_path?: string | null
 }
 
 export type ProductFormat = {
@@ -195,3 +198,71 @@ export type PriceMargin = {
 }
 
 export type ProductCategory = { id: string; name: string }
+
+// ---------------------------------------------------------------- clientes, orçamentos, pedidos
+export type Customer = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  document: string | null
+  address: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
+  notes: string | null
+  active: boolean
+}
+
+export type QuoteStatus = 'DRAFT' | 'SENT' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'CANCELLED'
+export type OrderStatus = 'PENDING' | 'IN_PRODUCTION' | 'READY' | 'DELIVERED' | 'CANCELLED'
+
+export type Quote = {
+  id: string
+  customer_id: string | null
+  number: number
+  status: QuoteStatus
+  event_name: string | null
+  issue_date: string
+  valid_until: string | null
+  event_date: string | null
+  subtotal: number
+  discount: number
+  shipping: number
+  total: number
+  internal_cost: number
+  profit: number
+  margin: number
+  notes: string | null
+  created_at: string
+}
+
+export type DocItem = {
+  id: string
+  product_id: string | null
+  format_id: string | null
+  description: string
+  quantity: number
+  unit_price: number
+  cost_snapshot: number
+  total_price: number
+}
+
+export type Order = {
+  id: string
+  quote_id: string | null
+  customer_id: string | null
+  number: number
+  status: OrderStatus
+  event_name: string | null
+  event_date: string | null
+  subtotal: number
+  discount: number
+  shipping: number
+  total: number
+  internal_cost: number
+  profit: number
+  margin: number
+  notes: string | null
+  created_at: string
+}

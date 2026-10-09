@@ -8,6 +8,7 @@ import { Dialog } from './Dialog'
 import { friendlyError } from './errors'
 import { moneyAuto, num, parseNum } from './format'
 import { marginTone, pct } from './pricing'
+import { ProductThumb } from './ProductThumb'
 import type { FormatCost, PriceMargin, Product, ProductCategory } from './types'
 
 const ALL = '__all__'
@@ -145,9 +146,12 @@ export function Products() {
             return (
               <article key={p.id} className={`card ${p.active ? '' : 'row-off'}`}>
                 <header className="card-head">
-                  <button className="row-link card-title" onClick={() => navigate(`/produtos/${p.id}`)}>
-                    {p.name}
-                  </button>
+                  <div className="card-id">
+                    <ProductThumb name={p.name} path={p.image_path} />
+                    <button className="row-link card-title" onClick={() => navigate(`/produtos/${p.id}`)}>
+                      {p.name}
+                    </button>
+                  </div>
                   {cat && <span className="chip">{cat.name}</span>}
                   {!p.active && <span className="chip">inativo</span>}
                 </header>

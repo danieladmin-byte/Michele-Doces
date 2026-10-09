@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { supabase } from './supabase'
@@ -8,6 +8,8 @@ import { Dialog } from './Dialog'
 import { CostBuilder } from './CostBuilder'
 import { PriceEditor } from './PriceEditor'
 import { friendlyError } from './errors'
+import { ProductThumb } from './ProductThumb'
+import { removeProductImage, uploadProductImage } from './images'
 import { moneyAuto, num, parseNum } from './format'
 import type { CostLine, ExtraCost, FormatCost, Ingredient, Product, ProductCategory, ProductFormat, ProductPrice, RecipeCost } from './types'
 
@@ -37,6 +39,8 @@ export function ProductDetail() {
   const [categoryId, setCategoryId] = useState('')
   const [active, setActive] = useState(true)
   const [savingInfo, setSavingInfo] = useState(false)
+  const [photoBusy, setPhotoBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     if (!company || !id) return
@@ -98,6 +102,37 @@ export function ProductDetail() {
     await load()
   }
 
+  async function onPhoto(file: File | undefined) {
+    if (!file || !product || !company) return
+    if (!file.type.startsWith('image/')) return toast('Escolha um arquivo de imagem.', 'error')
+    setPhotoBusy(true)
+    try {
+      await uploadProductImage(company.id, product.id, file, product.image_path ?? null)
+      toast('Foto atualizada')
+      await load()
+    } catch (err) {
+      toast(`Não consegui enviar a foto. ${friendlyError(err)}`, 'error')
+    } finally {
+      setPhotoBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function onRemovePhoto() {
+    if (!product) return
+    if (!window.confirm('Remover a foto deste produto?')) return
+    setPhotoBusy(true)
+    try {
+      await removeProductImage(product.id, product.image_path ?? null)
+      toast('Foto removida')
+      await load()
+    } catch (err) {
+      toast(friendlyError(err), 'error')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   if (loading) return <p className="muted">Carregando…</p>
   if (missing || !product || !company) {
     return (
@@ -117,7 +152,21 @@ export function ProductDetail() {
       <header className="page-head with-action">
         <div>
           <Link to="/produtos" className="back">← Produtos</Link>
-          <h1>{product.name}</h1>
+          <div className="title-row">
+            <ProductThumb name={product.name} path={product.image_path} size="lg" />
+            <h1>{product.name}</h1>
+          </div>
+          <div className="photo-actions">
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => void onPhoto(e.target.files?.[0])} />
+            <button className="btn" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
+              {photoBusy ? 'Enviando…' : product.image_path ? 'Trocar foto' : 'Adicionar foto'}
+            </button>
+            {product.image_path && !photoBusy && (
+              <button className="link-btn" onClick={() => void onRemovePhoto()}>
+                Remover foto
+              </button>
+            )}
+          </div>
           <p className="sub">Monte o custo por partes, defina o rendimento de cada formato e ajuste os preços vendo a margem.</p>
         </div>
         <button className="btn" onClick={() => setDuplicating(true)}>
@@ -145,7 +194,7 @@ export function ProductDetail() {
             <div className="is-total"><span>Custo por unidade</span><strong>{moneyAuto(cost.cost_total)}</strong></div>
           </section>
           <p className="muted strip-note">
-            Tanda de {num(Number(fmt.units_per_batch))} unidades custa {moneyAuto(cost.batch_total)}.{' '}
+            A receita completa ({num(Number(fmt.units_per_batch))} unidades) custa {moneyAuto(cost.batch_total)}.{' '}
             <button className="link-btn inline" onClick={() => setFormatDlg({ format: fmt })}>
               Editar formato
             </button>

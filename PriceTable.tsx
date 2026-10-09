@@ -6,6 +6,7 @@ import { useToast } from './Toast'
 import { friendlyError } from './errors'
 import { moneyAuto } from './format'
 import { marginTone, pct } from './pricing'
+import { ProductThumb } from './ProductThumb'
 import type { FormatCost, PriceMargin, ProductCategory } from './types'
 
 /** Tabela de preços: uma linha por produto/formato, uma coluna por tipo de preço. */
@@ -16,22 +17,25 @@ export function PriceTable() {
   const [formats, setFormats] = useState<FormatCost[]>([])
   const [margins, setMargins] = useState<PriceMargin[]>([])
   const [categories, setCategories] = useState<ProductCategory[]>([])
+  const [photos, setPhotos] = useState<Map<string, string | null>>(new Map())
   const [loading, setLoading] = useState(true)
   const [cento, setCento] = useState(false)
   const [query, setQuery] = useState('')
 
   const load = useCallback(async () => {
     if (!company) return
-    const [f, m, c] = await Promise.all([
+    const [f, m, c, pp] = await Promise.all([
       supabase.from('product_format_costs').select('*').eq('company_id', company.id).order('sort_order'),
       supabase.from('product_price_margins').select('*').eq('company_id', company.id),
       supabase.from('product_categories').select('id, name').eq('company_id', company.id).order('name'),
+      supabase.from('products').select('id, image_path').eq('company_id', company.id),
     ])
     const err = f.error ?? m.error ?? c.error
     if (err) toast(friendlyError(err), 'error')
     setFormats(((f.data ?? []) as FormatCost[]).filter((x) => x.active && x.product_active))
     setMargins(((m.data ?? []) as PriceMargin[]).filter((x) => x.active))
     setCategories((c.data ?? []) as ProductCategory[])
+    setPhotos(new Map(((pp.data ?? []) as { id: string; image_path: string | null }[]).map((x) => [x.id, x.image_path])))
     setLoading(false)
   }, [company, toast])
 
@@ -109,10 +113,13 @@ export function PriceTable() {
                   {g.rows.map((f) => (
                     <tr key={f.format_id} onClick={() => navigate(`/produtos/${f.product_id}`)}>
                       <td data-label="Produto">
-                        <button className="row-link" onClick={() => navigate(`/produtos/${f.product_id}`)}>
-                          {f.product_name}
-                        </button>{' '}
-                        <small className="tag">{f.format_name}</small>
+                        <span className="pt-name">
+                          <ProductThumb name={f.product_name} path={photos.get(f.product_id)} size="sm" />
+                          <button className="row-link" onClick={() => navigate(`/produtos/${f.product_id}`)}>
+                            {f.product_name}
+                          </button>{' '}
+                          <small className="tag">{f.format_name}</small>
+                        </span>
                       </td>
                       <td data-label="Custo" className="num">{moneyAuto(f.cost_total * mult)}</td>
                       {priceNames.map((n) => {
