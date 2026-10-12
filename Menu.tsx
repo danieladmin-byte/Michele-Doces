@@ -1,130 +1,69 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { FormEvent } from 'react'
-import { supabase } from './supabase'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import logoImg from './logo-transparente.png'
+import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { useToast } from './Toast'
 import { Dialog } from './Dialog'
 import { ProductThumb } from './ProductThumb'
 import { friendlyError } from './errors'
-import { brl, num } from './format'
+import { brl } from './format'
 import { addPixAccount, productImageUrl, removePixAccount } from './images'
-import type { MenuItem, PixAccount, PriceMargin } from './types'
+import { KIND_INFO, TITLE_PRESETS, useMenuData } from './menuData'
+import type { MenuRow } from './menuData'
+import { downloadMenuImages, downloadMenuPdf, renderMenu } from './menuImage'
+import type { MenuKind } from './types'
 
-type Row = {
-  priceId: string
-  productId: string
-  name: string
-  detail: string
-  price: number
-  image: string | null
+const CUSTOM = '__custom__'
+
+const slug = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+/** Cardápio colorido (estilo "Sabores Disponíveis") para postar no Instagram e WhatsApp. */
+export function MenuOnline() {
+  return <MenuEditor kind="ONLINE" />
 }
 
-function today() {
-  const s = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
-  return s.charAt(0).toUpperCase() + s.slice(1)
+/** Cardápio de fundo branco, simples e barato de imprimir. */
+export function MenuPrint() {
+  return <MenuEditor kind="PRINT" />
 }
 
-/** Cardápio do dia: sabores escolhidos (foto, nome e preço) + QR Code PIX para o cliente pagar. */
-export function Menu() {
-  const { company, reload } = useAuth()
+function MenuEditor({ kind }: { kind: MenuKind }) {
+  const { company } = useAuth()
   const toast = useToast()
-  const [items, setItems] = useState<MenuItem[]>([])
-  const [margins, setMargins] = useState<PriceMargin[]>([])
-  const [photos, setPhotos] = useState<Map<string, string | null>>(new Map())
-  const [pix, setPix] = useState<PixAccount[]>([])
-  const [loading, setLoading] = useState(true)
+  const m = useMenuData(kind)
+  const { settings, rows, flavors, kitRows, selectedPix, render } = m
   const [clientMode, setClientMode] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addingPix, setAddingPix] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'' | 'pdf' | 'img'>('')
+  const online = kind === 'ONLINE'
+  const editing = !clientMode || online
+  const logoUrl = company?.logo_path ? supabase.storage.from('company-logos').getPublicUrl(company.logo_path).data.publicUrl : logoImg
 
-  const load = useCallback(async () => {
-    if (!company) return
-    const [mi, pm, pr, px] = await Promise.all([
-      supabase.from('menu_items').select('id, price_id').eq('company_id', company.id),
-      supabase.from('product_price_margins').select('*').eq('company_id', company.id),
-      supabase.from('products').select('id, image_path').eq('company_id', company.id),
-      supabase.from('pix_accounts').select('id, name, image_path').eq('company_id', company.id).order('created_at'),
-    ])
-    const err = mi.error ?? pm.error ?? pr.error ?? px.error
-    if (err) toast(friendlyError(err), 'error')
-    setItems((mi.data ?? []) as MenuItem[])
-    setMargins(((pm.data ?? []) as PriceMargin[]).filter((m) => m.active))
-    setPhotos(new Map(((pr.data ?? []) as { id: string; image_path: string | null }[]).map((p) => [p.id, p.image_path])))
-    setPix((px.data ?? []) as PixAccount[])
-    setLoading(false)
-  }, [company, toast])
-
-  useEffect(() => {
-    void load()
-  }, [load])
-
-  // Nome do formato/preço só aparece quando faz diferença (vários formatos ou preços, ou kit).
-  const detailOf = useCallback(
-    (m: PriceMargin) => {
-      const sameProduct = margins.filter((x) => x.product_id === m.product_id)
-      const formats = new Set(sameProduct.map((x) => x.format_id))
-      const inFormat = sameProduct.filter((x) => x.format_id === m.format_id)
-      const parts: string[] = []
-      if (formats.size > 1) parts.push(m.format_name)
-      if (inFormat.length > 1 || m.bundle_size > 1) parts.push(m.bundle_size > 1 ? `${m.price_name} · ${num(m.bundle_size)} un` : m.price_name)
-      return parts.join(' · ')
-    },
-    [margins],
-  )
-
-  const rows: Row[] = useMemo(() => {
-    const byPrice = new Map(margins.map((m) => [m.price_id, m]))
-    return items
-      .map((it) => byPrice.get(it.price_id))
-      .filter((m): m is PriceMargin => !!m)
-      .map((m) => ({
-        priceId: m.price_id,
-        productId: m.product_id,
-        name: m.product_name,
-        detail: detailOf(m),
-        price: Number(m.price),
-        image: photos.get(m.product_id) ?? null,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR') || a.detail.localeCompare(b.detail, 'pt-BR'))
-  }, [items, margins, photos, detailOf])
-
-  const selectedPix = pix.find((p) => p.id === company?.menu_pix_id) ?? null
-  const inMenu = useMemo(() => new Set(items.map((i) => i.price_id)), [items])
-
-  async function addMany(priceIds: string[]) {
-    if (!company || priceIds.length === 0) return
-    setBusy(true)
-    const { error } = await supabase.from('menu_items').insert(priceIds.map((price_id) => ({ company_id: company.id, price_id })))
-    setBusy(false)
-    if (error) return toast(friendlyError(error), 'error')
-    setAdding(false)
-    toast(priceIds.length === 1 ? 'Adicionado ao cardápio' : `${priceIds.length} itens adicionados`)
-    await load()
-  }
-
-  async function removeOne(priceId: string) {
-    const it = items.find((i) => i.price_id === priceId)
-    if (!it) return
-    const { error } = await supabase.from('menu_items').delete().eq('id', it.id)
-    if (error) return toast(friendlyError(error), 'error')
-    setItems((list) => list.filter((i) => i.id !== it.id))
+  async function download(what: 'pdf' | 'img') {
+    setBusy(what)
+    try {
+      const base = `${slug(settings.title) || 'cardapio'}-${kind === 'ONLINE' ? 'online' : 'imprimir'}`
+      if (what === 'pdf') await downloadMenuPdf(render, base)
+      else await downloadMenuImages(render, base)
+    } catch (err) {
+      toast(`Não consegui gerar o arquivo. ${friendlyError(err)}`, 'error')
+    } finally {
+      setBusy('')
+    }
   }
 
   async function clearAll() {
-    if (!company || items.length === 0) return
-    if (!window.confirm('Limpar o cardápio de hoje? Os produtos continuam cadastrados.')) return
-    const { error } = await supabase.from('menu_items').delete().eq('company_id', company.id)
-    if (error) return toast(friendlyError(error), 'error')
-    await load()
-  }
-
-  async function choosePix(id: string) {
-    if (!company) return
-    const { error } = await supabase.from('companies').update({ menu_pix_id: id || null }).eq('id', company.id)
-    if (error) return toast(friendlyError(error), 'error')
-    await reload()
+    if (rows.length === 0) return
+    if (!window.confirm(`Limpar o ${KIND_INFO[kind].name.toLowerCase()}? Os produtos e kits continuam cadastrados.`)) return
+    await m.clearAll()
   }
 
   async function deletePix() {
@@ -133,133 +72,169 @@ export function Menu() {
     try {
       await removePixAccount(selectedPix.id, selectedPix.image_path)
       toast('QR Code excluído')
-      await reload()
-      await load()
+      await m.reload()
     } catch (err) {
       toast(friendlyError(err), 'error')
     }
   }
 
-  const qrUrl = productImageUrl(selectedPix?.image_path)
-  const logoUrl = company?.logo_path ? supabase.storage.from('company-logos').getPublicUrl(company.logo_path).data.publicUrl : logoImg
+  const empty = !m.loading && rows.length === 0
 
   return (
-    <div className="menu-page">
-      <div className={`menu-brand ${clientMode ? 'big' : ''}`}>
-        <img src={logoUrl} alt={company?.name ?? 'Logo'} />
-      </div>
-      <header className="page-head with-action">
+    <div className={online ? 'menu-online' : 'menu-page'}>
+      <header className="page-head with-action no-print">
         <div>
-          <h1>Cardápio do dia</h1>
-          <p className="sub">{today()}</p>
+          <h1>{KIND_INFO[kind].name}</h1>
+          <p className="sub">
+            {online
+              ? 'Arte colorida para postar no Instagram e mandar no WhatsApp.'
+              : 'Fundo branco, para imprimir gastando pouca tinta.'}
+          </p>
         </div>
-        <div className="block-add no-print">
-          {!clientMode && (
+        <div className="block-add">
+          {editing && (
             <button className="btn btn-primary" onClick={() => setAdding(true)}>
-              Adicionar sabores
+              Adicionar sabores e kits
             </button>
           )}
-          <button className="btn" onClick={() => setClientMode((v) => !v)} aria-pressed={clientMode}>
-            {clientMode ? 'Voltar a editar' : 'Modo cliente'}
-          </button>
-          <button className="btn" onClick={() => window.print()}>
-            Imprimir
-          </button>
+          {!online && (
+            <button className="btn" onClick={() => setClientMode((v) => !v)} aria-pressed={clientMode}>
+              {clientMode ? 'Voltar a editar' : 'Modo cliente'}
+            </button>
+          )}
         </div>
       </header>
 
-      {loading ? (
+      {editing && (
+        <section className="panel menu-settings no-print" aria-label="Ajustes do cardápio">
+          <TitleField value={settings.title} onSave={(title) => void m.saveSettings({ title })} />
+          <div className="menu-checks">
+            <label className="check">
+              <input type="checkbox" checked={settings.show_qr} onChange={(e) => void m.saveSettings({ show_qr: e.target.checked })} />
+              Mostrar QR Code PIX
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={settings.show_prices} onChange={(e) => void m.saveSettings({ show_prices: e.target.checked })} />
+              Mostrar o preço de cada sabor
+            </label>
+          </div>
+
+          {settings.show_qr && (
+            <div className="pix-controls">
+              {m.pix.length > 0 && (
+                <div className="field">
+                  <label htmlFor="pix-sel">Conta PIX</label>
+                  <select id="pix-sel" value={selectedPix?.id ?? ''} onChange={(e) => void m.saveSettings({ pix_id: e.target.value || null })}>
+                    <option value="">Nenhuma</option>
+                    {m.pix.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="block-add">
+                <button className="btn btn-small" onClick={() => setAddingPix(true)}>
+                  {m.pix.length > 0 ? 'Adicionar outra conta' : 'Adicionar QR Code PIX'}
+                </button>
+                {selectedPix && (
+                  <button className="link-btn" onClick={() => void deletePix()}>
+                    Excluir este QR
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="menu-export">
+            <button className="btn" disabled={busy !== '' || empty} onClick={() => void download('pdf')}>
+              {busy === 'pdf' ? 'Gerando PDF…' : 'Baixar PDF'}
+            </button>
+            <button className="btn" disabled={busy !== '' || empty} onClick={() => void download('img')}>
+              {busy === 'img' ? 'Gerando imagem…' : 'Baixar imagem'}
+            </button>
+            {!online && (
+              <button className="btn" disabled={empty} onClick={() => window.print()}>
+                Imprimir
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {m.loading ? (
         <p className="muted">Carregando…</p>
-      ) : rows.length === 0 ? (
+      ) : empty ? (
         <div className="empty-block">
-          <strong>O cardápio de hoje está vazio.</strong>
-          <p>Escolha os sabores disponíveis. Eles aparecem com foto, nome e preço, prontos para mostrar ao cliente.</p>
-          {!clientMode && (
+          <strong>Este cardápio está vazio.</strong>
+          <p>Escolha os sabores e kits disponíveis. Eles aparecem com foto, nome e preço, prontos para mostrar ao cliente.</p>
+          {editing && (
             <div className="row-actions">
               <button className="btn btn-primary" onClick={() => setAdding(true)}>
-                Adicionar sabores
+                Adicionar sabores e kits
               </button>
             </div>
           )}
         </div>
+      ) : online ? (
+        <OnlinePreview render={render} title={settings.title}>
+          <MenuRows rows={flavors} label="Sabores" showPrice={settings.show_prices} editing onMove={m.move} onRemove={m.removeItem} />
+          <MenuRows rows={kitRows} label="Kits" showPrice editing onMove={m.move} onRemove={m.removeItem} />
+          <p className="menu-tools">
+            <button className="link-btn" onClick={() => void clearAll()}>
+              Limpar cardápio
+            </button>
+          </p>
+        </OnlinePreview>
       ) : (
-        <ul className="menu-list">
-          {rows.map((r) => (
-            <li key={r.priceId} className="menu-row">
-              <ProductThumb name={r.name} path={r.image} size="md" />
-              <div className="menu-name">
-                <strong>{r.name}</strong>
-                {r.detail && <small>{r.detail}</small>}
-              </div>
-              <span className="menu-price">{brl(r.price)}</span>
-              {!clientMode && (
-                <button className="icon-btn no-print" aria-label={`Tirar ${r.name} do cardápio`} onClick={() => void removeOne(r.priceId)}>
-                  ×
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {!clientMode && rows.length > 0 && (
-        <p className="menu-tools no-print">
-          <button className="link-btn" onClick={() => void clearAll()}>
-            Limpar cardápio
-          </button>
-        </p>
-      )}
-
-      <section className="panel pix-panel">
-        <h2 className="section-title">Pague com PIX</h2>
-        {qrUrl && selectedPix ? (
-          <figure className="pix-figure">
-            <img src={qrUrl} alt={`QR Code PIX: ${selectedPix.name}`} className="pix-img" />
-            <figcaption>{selectedPix.name}</figcaption>
-          </figure>
-        ) : (
-          <div className="pix-empty">
-            {clientMode ? 'QR Code PIX não definido.' : 'Adicione o QR Code PIX da conta que vai receber os pagamentos.'}
-          </div>
-        )}
-
-        {!clientMode && (
-          <div className="pix-controls no-print">
-            {pix.length > 0 && (
-              <div className="field">
-                <label htmlFor="pix-sel">Conta PIX de hoje</label>
-                <select id="pix-sel" value={selectedPix?.id ?? ''} onChange={(e) => void choosePix(e.target.value)}>
-                  <option value="">Nenhuma</option>
-                  {pix.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="block-add">
-              <button className="btn" onClick={() => setAddingPix(true)}>
-                {pix.length > 0 ? 'Adicionar outra conta' : 'Adicionar QR Code PIX'}
-              </button>
-              {selectedPix && (
-                <button className="link-btn" onClick={() => void deletePix()}>
-                  Excluir este QR
-                </button>
-              )}
+        <>
+          <div className="menu-sheet">
+            <div className={`menu-brand ${clientMode ? 'big' : ''}`}>
+              <img src={logoUrl} alt={company?.name ?? 'Logo'} />
             </div>
-          </div>
-        )}
-      </section>
+            <div className="menu-title">
+              <h2>{settings.title}</h2>
+              <p className="sub">{render.dateLabel}</p>
+            </div>
+            <MenuRows rows={flavors} showPrice={settings.show_prices} editing={editing} onMove={m.move} onRemove={m.removeItem} />
+            {kitRows.length > 0 && <h3 className="menu-sub">Kits</h3>}
+            <MenuRows rows={kitRows} showPrice editing={editing} onMove={m.move} onRemove={m.removeItem} />
 
-      <AddItemsDialog open={adding} margins={margins} photos={photos} inMenu={inMenu} detailOf={detailOf} busy={busy} onClose={() => setAdding(false)} onAdd={addMany} />
+            {settings.show_qr && (
+              <section className="panel pix-panel">
+                <h3 className="section-title">Pague com PIX</h3>
+                {selectedPix ? (
+                  <figure className="pix-figure">
+                    <img src={productImageUrl(selectedPix.image_path) ?? ''} alt={`QR Code PIX: ${selectedPix.name}`} className="pix-img" />
+                    <figcaption>{selectedPix.name}</figcaption>
+                  </figure>
+                ) : (
+                  <div className="pix-empty no-print">
+                    {clientMode ? 'QR Code PIX não definido.' : 'Escolha ou adicione o QR Code PIX nos ajustes acima.'}
+                  </div>
+                )}
+              </section>
+            )}
+          </div>
+          {editing && (
+            <p className="menu-tools no-print">
+              <button className="link-btn" onClick={() => void clearAll()}>
+                Limpar cardápio
+              </button>
+            </p>
+          )}
+        </>
+      )}
+
+      <AddItemsDialog open={adding} data={m} onClose={() => setAdding(false)} />
       <AddPixDialog
         open={addingPix}
         onClose={() => setAddingPix(false)}
         onSaved={async (id) => {
           setAddingPix(false)
-          await choosePix(id)
-          await load()
+          await m.saveSettings({ pix_id: id })
+          await m.reload()
           toast('QR Code salvo')
         }}
       />
@@ -267,80 +242,270 @@ export function Menu() {
   )
 }
 
-function AddItemsDialog({
-  open,
-  margins,
-  photos,
-  inMenu,
-  detailOf,
-  busy,
-  onClose,
-  onAdd,
+// ------------------------------------------------------------------ título
+function TitleField({ value, onSave }: { value: string; onSave: (t: string) => void }) {
+  const [custom, setCustom] = useState(!TITLE_PRESETS.includes(value))
+  const [draft, setDraft] = useState(value)
+
+  useEffect(() => {
+    setDraft(value)
+    if (!TITLE_PRESETS.includes(value)) setCustom(true)
+  }, [value])
+
+  function commit() {
+    const t = draft.trim()
+    if (!t) return setDraft(value)
+    if (t !== value) onSave(t)
+  }
+
+  return (
+    <div className="menu-title-field">
+      <div className="field">
+        <label htmlFor="menu-title-sel">Título do cardápio</label>
+        <select
+          id="menu-title-sel"
+          value={custom ? CUSTOM : value}
+          onChange={(e) => {
+            if (e.target.value === CUSTOM) return setCustom(true)
+            setCustom(false)
+            onSave(e.target.value)
+          }}
+        >
+          {TITLE_PRESETS.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+          <option value={CUSTOM}>Outro título…</option>
+        </select>
+      </div>
+      {custom && (
+        <div className="field">
+          <label htmlFor="menu-title-txt">Seu título</label>
+          <input
+            id="menu-title-txt"
+            value={draft}
+            maxLength={40}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+            }}
+            placeholder="Ex.: Especial de Páscoa"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ lista de itens
+function MenuRows({
+  rows,
+  label,
+  showPrice,
+  editing,
+  onMove,
+  onRemove,
 }: {
-  open: boolean
-  margins: PriceMargin[]
-  photos: Map<string, string | null>
-  inMenu: Set<string>
-  detailOf: (m: PriceMargin) => string
-  busy: boolean
-  onClose: () => void
-  onAdd: (ids: string[]) => void
+  rows: MenuRow[]
+  label?: string
+  showPrice: boolean
+  editing: boolean
+  onMove: (itemId: string, dir: -1 | 1) => void | Promise<void>
+  onRemove: (itemId: string) => void | Promise<void>
 }) {
+  if (rows.length === 0) return null
+  return (
+    <>
+      {label && <h3 className="menu-sub no-print">{label}</h3>}
+      <ul className="menu-list">
+        {rows.map((r, i) => (
+          <li key={r.itemId} className="menu-row">
+            <ProductThumb name={r.name} path={r.image} size="md" />
+            <div className="menu-name">
+              <strong>{r.name}</strong>
+              {r.detail && <small>{r.detail}</small>}
+            </div>
+            {showPrice && <span className="menu-price">{brl(r.price)}</span>}
+            {editing && (
+              <span className="menu-move no-print">
+                <button className="icon-btn small" aria-label={`Subir ${r.name}`} disabled={i === 0} onClick={() => void onMove(r.itemId, -1)}>
+                  ↑
+                </button>
+                <button className="icon-btn small" aria-label={`Descer ${r.name}`} disabled={i === rows.length - 1} onClick={() => void onMove(r.itemId, 1)}>
+                  ↓
+                </button>
+                <button className="icon-btn small" aria-label={`Tirar ${r.name} do cardápio`} onClick={() => void onRemove(r.itemId)}>
+                  ×
+                </button>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+// ------------------------------------------------------------------ prévia da imagem (cardápio online)
+function OnlinePreview({ render, title, children }: { render: ReturnType<typeof useMenuData>['render']; title: string; children: ReactNode }) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null)
+  const [state, setState] = useState<'busy' | 'ok' | 'error'>('busy')
+
+  // Redesenha quando algo muda (com uma pequena espera para não desenhar a cada clique).
+  const key = useMemo(() => JSON.stringify(render), [render])
+  useEffect(() => {
+    let cancelled = false
+    setState('busy')
+    const t = setTimeout(async () => {
+      try {
+        const [canvas] = await renderMenu(JSON.parse(key))
+        if (cancelled) return
+        setUrl(canvas.toDataURL('image/jpeg', 0.88))
+        setSize({ w: canvas.width, h: canvas.height })
+        setState('ok')
+      } catch {
+        if (!cancelled) setState('error')
+      }
+    }, 250)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [key])
+
+  const tall = size && size.h > size.w * 1.25
+
+  return (
+    <div className="menu-online-grid">
+      <div className="menu-preview">
+        {url && <img src={url} alt={`Prévia: ${title}`} className={state === 'busy' ? 'is-busy' : ''} />}
+        {state === 'busy' && <p className="muted small">Gerando prévia…</p>}
+        {state === 'error' && <p className="muted small">Não consegui desenhar a prévia. Confira as fotos e tente de novo.</p>}
+        {size && <p className="hint">{`${size.w} × ${size.h} px`}</p>}
+        {tall && (
+          <p className="hint">
+            Esta arte ficou comprida. No feed do Instagram o ideal é até 1080 × 1350 px; para ficar menor, tire alguns itens ou desligue o QR Code.
+          </p>
+        )}
+      </div>
+      <div className="menu-edit">{children}</div>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ adicionar sabores e kits
+function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnType<typeof useMenuData>; onClose: () => void }) {
+  const [tab, setTab] = useState<'p' | 'k'>('p')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     if (open) {
       setPicked(new Set())
       setQuery('')
+      setTab('p')
     }
   }, [open])
 
+  const inMenu = useMemo(() => new Set(data.items.map((i) => (i.price_id ? `p:${i.price_id}` : `k:${i.kit_price_id}`))), [data.items])
   const q = query.trim().toLowerCase()
-  const list = margins
-    .filter((m) => m.product_name.toLowerCase().includes(q))
-    .sort((a, b) => a.product_name.localeCompare(b.product_name, 'pt-BR') || a.price - b.price)
 
-  function toggle(id: string) {
+  const products = data.margins
+    .filter((x) => x.product_name.toLowerCase().includes(q))
+    .sort((a, b) => a.product_name.localeCompare(b.product_name, 'pt-BR') || a.price - b.price)
+  const kits = data.kitPrices
+    .map((kp) => ({ kp, kit: data.kitById.get(kp.kit_id) }))
+    .filter((x): x is { kp: (typeof data.kitPrices)[number]; kit: NonNullable<typeof x.kit> } => !!x.kit && x.kit.active && x.kit.name.toLowerCase().includes(q))
+    .sort((a, b) => a.kit.name.localeCompare(b.kit.name, 'pt-BR') || a.kp.price - b.kp.price)
+
+  function toggle(key: string) {
     setPicked((s) => {
       const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
+      if (n.has(key)) n.delete(key)
+      else n.add(key)
       return n
     })
   }
 
+  async function add() {
+    setBusy(true)
+    const keys = [...picked]
+    const ok = await data.addItems({
+      priceIds: keys.filter((k) => k.startsWith('p:')).map((k) => k.slice(2)),
+      kitPriceIds: keys.filter((k) => k.startsWith('k:')).map((k) => k.slice(2)),
+    })
+    setBusy(false)
+    if (ok) onClose()
+  }
+
+  const count = (prefix: string) => [...picked].filter((k) => k.startsWith(prefix)).length
+
   return (
-    <Dialog open={open} onClose={onClose} title="Adicionar sabores">
+    <Dialog open={open} onClose={onClose} title="Adicionar ao cardápio">
+      <div className="tabs" role="tablist" aria-label="O que adicionar">
+        <button role="tab" aria-selected={tab === 'p'} className={`tab ${tab === 'p' ? 'on' : ''}`} onClick={() => setTab('p')}>
+          Sabores {count('p:') > 0 && <small>{count('p:')}</small>}
+        </button>
+        <button role="tab" aria-selected={tab === 'k'} className={`tab ${tab === 'k' ? 'on' : ''}`} onClick={() => setTab('k')}>
+          Kits {count('k:') > 0 && <small>{count('k:')}</small>}
+        </button>
+      </div>
       <div className="field">
-        <input type="search" placeholder="Buscar produto" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar produto" />
+        <input type="search" placeholder={tab === 'p' ? 'Buscar produto' : 'Buscar kit'} value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar" />
       </div>
       <ul className="pick-list">
-        {list.length === 0 && <li className="muted">Nenhum produto com preço encontrado.</li>}
-        {list.map((m) => {
-          const already = inMenu.has(m.price_id)
-          const d = detailOf(m)
-          return (
-            <li key={m.price_id}>
-              <label className={`pick-row ${already ? 'is-off' : ''}`}>
-                <input type="checkbox" checked={already || picked.has(m.price_id)} disabled={already} onChange={() => toggle(m.price_id)} />
-                <ProductThumb name={m.product_name} path={photos.get(m.product_id)} size="sm" />
-                <span className="pick-name">
-                  {m.product_name}
-                  {d && <small>{d}</small>}
-                  {already && <small>já está no cardápio</small>}
-                </span>
-                <b>{brl(Number(m.price))}</b>
-              </label>
-            </li>
-          )
-        })}
+        {tab === 'p' && products.length === 0 && <li className="muted">Nenhum produto com preço encontrado.</li>}
+        {tab === 'k' && kits.length === 0 && <li className="muted">Nenhum kit com preço encontrado. Crie o kit e defina o preço na aba Kits.</li>}
+        {tab === 'p' &&
+          products.map((x) => {
+            const key = `p:${x.price_id}`
+            const already = inMenu.has(key)
+            const d = data.detailOf(x)
+            return (
+              <li key={key}>
+                <label className={`pick-row ${already ? 'is-off' : ''}`}>
+                  <input type="checkbox" checked={already || picked.has(key)} disabled={already} onChange={() => toggle(key)} />
+                  <ProductThumb name={x.product_name} path={data.photos.get(x.product_id)} size="sm" />
+                  <span className="pick-name">
+                    {x.product_name}
+                    {d && <small>{d}</small>}
+                    {already && <small>já está no cardápio</small>}
+                  </span>
+                  <b>{brl(Number(x.price))}</b>
+                </label>
+              </li>
+            )
+          })}
+        {tab === 'k' &&
+          kits.map(({ kp, kit }) => {
+            const key = `k:${kp.id}`
+            const already = inMenu.has(key)
+            const d = data.kitDetailOf(kp)
+            return (
+              <li key={key}>
+                <label className={`pick-row ${already ? 'is-off' : ''}`}>
+                  <input type="checkbox" checked={already || picked.has(key)} disabled={already} onChange={() => toggle(key)} />
+                  <ProductThumb name={kit.name} path={kit.image_path} size="sm" />
+                  <span className="pick-name">
+                    {kit.name}
+                    {d && <small>{d}</small>}
+                    {already && <small>já está no cardápio</small>}
+                  </span>
+                  <b>{brl(kp.price)}</b>
+                </label>
+              </li>
+            )
+          })}
       </ul>
       <div className="dialog-actions">
         <button type="button" className="btn" onClick={onClose}>
           Cancelar
         </button>
-        <button className="btn btn-primary" disabled={busy || picked.size === 0} onClick={() => onAdd([...picked])}>
+        <button className="btn btn-primary" disabled={busy || picked.size === 0} onClick={() => void add()}>
           {picked.size > 0 ? `Adicionar (${picked.size})` : 'Adicionar'}
         </button>
       </div>
@@ -348,6 +513,7 @@ function AddItemsDialog({
   )
 }
 
+// ------------------------------------------------------------------ QR Code PIX
 function AddPixDialog({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: (id: string) => void | Promise<void> }) {
   const { company } = useAuth()
   const toast = useToast()

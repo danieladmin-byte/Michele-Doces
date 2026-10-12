@@ -5,10 +5,13 @@ import logoImg from './logo-transparente.png'
 
 const NAV = [
   { to: '/', label: 'Início', icon: '◐', end: true },
-  { to: '/cardapio', label: 'Cardápio do dia', short: 'Cardápio', icon: '☀' },
+  { to: '/cardapio-online', label: 'Cardápio online', short: 'C. online', icon: '☀' },
+  { to: '/cardapio', label: 'Cardápio p/ imprimir', short: 'C. imprimir', icon: '☼' },
   { to: '/ingredientes', label: 'Ingredientes', short: 'Insumos', icon: '◍' },
   { to: '/receitas', label: 'Receitas', icon: '❦' },
   { to: '/produtos', label: 'Produtos', icon: '◆' },
+  { to: '/catalogo', label: 'Catálogo', icon: '▣' },
+  { to: '/kits', label: 'Kits', icon: '✿' },
   { to: '/tabela', label: 'Preços', icon: '％' },
   { to: '/clientes', label: 'Clientes', icon: '☺' },
   { to: '/orcamentos', label: 'Orçamentos', short: 'Orçam.', icon: '✎' },

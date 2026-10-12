@@ -73,8 +73,13 @@ export function OrderDetail() {
     if (!order || !company) return
     setPdfBusy(true)
     try {
+      let terms: string | null = null
+      if (order.quote_id) {
+        const { data } = await supabase.from('quotes').select('payment_terms').eq('id', order.quote_id).maybeSingle()
+        terms = (data as { payment_terms: string | null } | null)?.payment_terms ?? null
+      }
       await downloadPdf(
-        pdfDataFor('FATURA', company, customer, { ...order, issue_date: order.created_at.slice(0, 10) }, items),
+        pdfDataFor('FATURA', company, customer, { ...order, issue_date: order.created_at.slice(0, 10) }, items, terms),
         pdfFileName('FATURA', order.number, customer),
       )
     } catch (err) {

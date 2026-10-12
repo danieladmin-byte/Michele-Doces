@@ -5,7 +5,16 @@
  * jsPDF y las fuentes solo se cargan al pedir el PDF.
  */
 
-export type PdfItem = { description: string; quantity: number; unit_price: number; total_price: number }
+import { loadImage } from './images'
+
+export type PdfItem = {
+  description: string
+  quantity: number
+  unit_price: number
+  total_price: number
+  /** Foto do ítem (URL pública): sai como miniatura à esquerda do nome. */
+  imageUrl?: string | null
+}
 
 export type PdfData = {
   kind: 'ORCAMENTO' | 'FATURA'
@@ -56,16 +65,6 @@ function shortDate(iso: string) {
   return `${d}/${m}/${y.slice(2)}`
 }
 
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('logo'))
-    img.src = url
-  })
-}
-
 /** Recorta la imagen en un círculo (centro, cubriendo) y devuelve un PNG. */
 function circleCrop(img: HTMLImageElement, size = 480): string {
   const c = document.createElement('canvas')
@@ -89,6 +88,18 @@ function circleCrop(img: HTMLImageElement, size = 480): string {
   return c.toDataURL('image/png')
 }
 
+/** Miniatura quadrada (recorte central) em JPEG, para entrar na tabela do PDF. */
+function squareThumb(img: HTMLImageElement, size = 220): string {
+  const c = document.createElement('canvas')
+  c.width = c.height = size
+  const g = c.getContext('2d')!
+  g.fillStyle = '#ffffff'
+  g.fillRect(0, 0, size, size)
+  const side = Math.min(img.naturalWidth, img.naturalHeight)
+  g.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size)
+  return c.toDataURL('image/jpeg', 0.85)
+}
+
 function gradientBg(): string {
   const c = document.createElement('canvas')
   c.width = 8
@@ -103,7 +114,7 @@ function gradientBg(): string {
   return c.toDataURL('image/png')
 }
 
-type Row = { lines: string[]; qty: string; unit: string; total: string; h: number }
+type Row = { lines: string[]; qty: string; unit: string; total: string; h: number; img?: string }
 
 export async function buildPdf(d: PdfData) {
   const [{ jsPDF }, fonts] = await Promise.all([import('jspdf'), import('./pdfFonts')])
@@ -184,20 +195,38 @@ export async function buildPdf(d: PdfData) {
   const items: PdfItem[] = [...d.items]
   if (d.shipping > 0) items.push({ description: 'Frete / entrega', quantity: 1, unit_price: d.shipping, total_price: d.shipping })
 
+  // fotos dos ítems (se alguma falhar, a linha sai sem miniatura)
+  const thumbs = await Promise.all(
+    items.map(async (it) => {
+      if (!it.imageUrl) return undefined
+      try {
+        return squareThumb(await loadImage(it.imageUrl))
+      } catch {
+        return undefined
+      }
+    }),
+  )
+
   const colTextW = COLS[0].w - 32
-  const rows: Row[] = items.map((it) => {
-    setFont('Poppins', 21)
-    let lines = doc.splitTextToSize(it.description, colTextW * K) as string[]
-    if (lines.length > 2) {
-      lines = lines.slice(0, 2)
-      lines[1] = lines[1].replace(/.{0,2}$/, '…')
+  const THUMB = 62
+  const rows: Row[] = items.map((it, idx) => {
+    const img = thumbs[idx]
+    const size = img ? 19 : 21
+    const maxLines = img ? 3 : 2
+    const width = img ? colTextW - THUMB - 4 : colTextW
+    setFont('Poppins', size)
+    let lines = doc.splitTextToSize(it.description, width * K) as string[]
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines)
+      lines[maxLines - 1] = lines[maxLines - 1].replace(/.{0,2}$/, '…')
     }
     return {
       lines,
+      img,
       qty: qtyText(it.quantity),
       unit: money(it.unit_price),
       total: money(it.total_price),
-      h: lines.length > 1 ? 92 : 66,
+      h: img ? Math.max(76, lines.length * 25 + 24) : lines.length > 1 ? 92 : 66,
     }
   })
   const GAP = 8
@@ -277,8 +306,16 @@ export async function buildPdf(d: PdfData) {
     doc.setLineWidth(1.6 * K)
     for (const c of COLS) doc.rect(c.x * K, y * K, c.w * K, r.h * K, 'FD')
     const mid = y + r.h / 2
-    const lh = 27
-    r.lines.forEach((ln, i) => text(ln, COLS[0].x + 16, mid + (i - (r.lines.length - 1) / 2) * lh, { size: 21, color: MUTED }))
+    if (r.img) {
+      const ty = y + (r.h - THUMB) / 2
+      doc.addImage(r.img, 'JPEG', (COLS[0].x + 10) * K, ty * K, THUMB * K, THUMB * K)
+      doc.setDrawColor(INK)
+      doc.setLineWidth(1.6 * K)
+      doc.roundedRect((COLS[0].x + 10) * K, ty * K, THUMB * K, THUMB * K, 6 * K, 6 * K, 'S')
+    }
+    const lh = r.img ? 25 : 27
+    const tx = COLS[0].x + (r.img ? 10 + THUMB + 10 : 16)
+    r.lines.forEach((ln, i) => text(ln, tx, mid + (i - (r.lines.length - 1) / 2) * lh, { size: r.img ? 19 : 21, color: MUTED }))
     if (r.qty) text(r.qty, COLS[1].x + COLS[1].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
     if (r.unit) text(r.unit, COLS[2].x + COLS[2].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
     if (r.total) text(r.total, COLS[3].x + COLS[3].w / 2, mid, { size: 21, color: MUTED, align: 'center' })

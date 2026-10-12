@@ -8,6 +8,9 @@ import { brl, formatDate, num } from './format'
 import { marginTone, pct } from './pricing'
 import { QUOTE_STATUS, pdfDataFor, pdfFileName } from './docs'
 import { downloadPdf } from './pdf'
+import { Dialog } from './Dialog'
+import { PaymentTermsField, usePaymentMethods } from './PaymentTerms'
+import { termsOf } from './docs'
 import type { Customer, DocItem, Quote, QuoteStatus } from './types'
 
 export function QuoteDetail() {
@@ -22,6 +25,9 @@ export function QuoteDetail() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [pdfBusy, setPdfBusy] = useState(false)
+  const [payOpen, setPayOpen] = useState(false)
+  const [payText, setPayText] = useState('')
+  const pay = usePaymentMethods()
 
   const load = useCallback(async () => {
     if (!id) return
@@ -78,11 +84,22 @@ export function QuoteDetail() {
     navigate('/orcamentos')
   }
 
+  async function savePay() {
+    if (!quote) return
+    setBusy(true)
+    const { error } = await supabase.rpc('set_quote_payment_terms', { p_quote_id: quote.id, p_terms: payText })
+    setBusy(false)
+    if (error) return toast(friendlyError(error), 'error')
+    toast('Forma de pagamento atualizada')
+    setPayOpen(false)
+    await load()
+  }
+
   async function pdf() {
     if (!quote || !company) return
     setPdfBusy(true)
     try {
-      await downloadPdf(pdfDataFor('ORCAMENTO', company, customer, quote, items), pdfFileName('ORCAMENTO', quote.number, customer))
+      await downloadPdf(pdfDataFor('ORCAMENTO', company, customer, quote, items, quote.payment_terms), pdfFileName('ORCAMENTO', quote.number, customer))
     } catch (err) {
       toast(`Não consegui gerar o PDF. ${friendlyError(err)}`, 'error')
     } finally {
@@ -163,6 +180,38 @@ export function QuoteDetail() {
           {quote.event_date ? ` · evento em ${formatDate(quote.event_date)}` : ''}
         </p>
       </section>
+
+      <section className="panel">
+        <header className="panel-head">
+          <h2 className="section-title">Forma de pagamento</h2>
+          <button
+            className="btn btn-small"
+            onClick={() => {
+              setPayText(quote.payment_terms?.trim() ? quote.payment_terms : pay.defaultText)
+              setPayOpen(true)
+            }}
+          >
+            Editar
+          </button>
+        </header>
+        <ul className="pay-lines">
+          {(company ? termsOf(company, quote.payment_terms) : []).map((t, i) => (
+            <li key={i}>{t}</li>
+          ))}
+        </ul>
+      </section>
+
+      <Dialog open={payOpen} onClose={() => setPayOpen(false)} title="Forma de pagamento">
+        <PaymentTermsField value={payText} onChange={setPayText} methods={pay.methods} reload={pay.reload} />
+        <div className="dialog-actions">
+          <button type="button" className="btn" onClick={() => setPayOpen(false)}>
+            Cancelar
+          </button>
+          <button className="btn btn-primary" disabled={busy} onClick={() => void savePay()}>
+            Salvar
+          </button>
+        </div>
+      </Dialog>
 
       <section className={`panel internal tone-${marginTone(margin)}`}>
         <h2 className="section-title">Só você vê isto</h2>

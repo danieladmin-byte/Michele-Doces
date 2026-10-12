@@ -6,9 +6,14 @@ import { useAuth } from './auth'
 import { useToast } from './Toast'
 import { CustomerDialog } from './Customers'
 import { friendlyError } from './errors'
-import { moneyAuto, parseNum, todayISO } from './format'
+import { dec, moneyAuto, parseNum, todayISO } from './format'
 import { marginTone, pct } from './pricing'
 import { ProductThumb } from './ProductThumb'
+import { PaymentTermsField, usePaymentMethods } from './PaymentTerms'
+import { useKitData } from './kitData'
+import { useCatalogData } from './catalogData'
+import { PhotoPicker } from './PhotoPicker'
+import { productImageUrl } from './images'
 import type { Customer, DocItem, FormatCost, Product, ProductCategory, ProductPrice, Quote } from './types'
 
 const NEW_CUSTOMER = '__new__'
@@ -16,7 +21,9 @@ const CUSTOM = '__custom__'
 
 type Line = {
   key: string
-  kind: 'product' | 'free'
+  kind: 'product' | 'free' | 'kit'
+  kitId: string
+  imagePath: string
   productId: string
   formatId: string
   priceId: string
@@ -29,7 +36,6 @@ type Line = {
 
 let seq = 0
 const newKey = () => `l${++seq}`
-const dec = (n: number) => String(Number(n.toFixed(4))).replace('.', ',')
 const addDays = (iso: string, days: number) => {
   const d = new Date(`${iso}T12:00:00`)
   d.setDate(d.getDate() + days)
@@ -64,6 +70,12 @@ export function QuoteEditor() {
   const [lines, setLines] = useState<Line[]>([])
   const [newCustomer, setNewCustomer] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [payTerms, setPayTerms] = useState('')
+  const [payTouched, setPayTouched] = useState(false)
+  const pay = usePaymentMethods()
+  const kd = useKitData()
+  const cat = useCatalogData()
+  const [pickerFor, setPickerFor] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!company) return
@@ -102,6 +114,10 @@ export function QuoteEditor() {
         setNotes(quote.notes ?? '')
         setDiscount(Number(quote.discount) ? dec(Number(quote.discount)) : '')
         setShipping(Number(quote.shipping) ? dec(Number(quote.shipping)) : '')
+        if (quote.payment_terms) {
+          setPayTerms(quote.payment_terms)
+          setPayTouched(true)
+        }
         setLines(
           ((it.data ?? []) as DocItem[]).map((x): Line => {
             if (x.product_id && x.format_id) {
@@ -111,6 +127,8 @@ export function QuoteEditor() {
               return {
                 key: newKey(),
                 kind: 'product',
+                kitId: '',
+                imagePath: x.image_path ?? '',
                 productId: x.product_id,
                 formatId: x.format_id,
                 priceId: match?.id ?? CUSTOM,
@@ -124,6 +142,8 @@ export function QuoteEditor() {
             return {
               key: newKey(),
               kind: 'free',
+              kitId: '',
+              imagePath: x.image_path ?? '',
               productId: '',
               formatId: '',
               priceId: '',
@@ -143,6 +163,10 @@ export function QuoteEditor() {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (pay.loaded && !payTouched) setPayTerms(pay.defaultText)
+  }, [pay.loaded, pay.defaultText, payTouched])
 
   const fcById = useMemo(() => new Map(formats.map((f) => [f.format_id, f])), [formats])
   const formatsOf = useMemo(() => {
@@ -186,7 +210,12 @@ export function QuoteEditor() {
     })
   }
 
+  function suggestedPhoto(productId: string): string {
+    return cat.photos.find((p) => p.product_id === productId)?.image_path ?? products.find((p) => p.id === productId)?.image_path ?? ''
+  }
+
   function pickProduct(key: string, productId: string) {
+    patch(key, { imagePath: suggestedPhoto(productId) })
     const f = (formatsOf.get(productId) ?? [])[0]
     if (!f) return patch(key, { productId, formatId: '', priceId: '', description: '' })
     pickFormat(key, productId, f.format_id)
@@ -204,6 +233,28 @@ export function QuoteEditor() {
     })
   }
 
+  const activeKits = kd.kits.filter((k) => k.active && kd.prices.some((p) => p.kit_id === k.id))
+
+  function pickKit(key: string, kitId: string) {
+    const kit = kd.kits.find((k) => k.id === kitId)
+    if (!kit) return patch(key, { kitId: '', priceId: '', description: '', unit: '', freeCost: '' })
+    const first = kd.prices.filter((p) => p.kit_id === kitId).sort((a, b) => b.price - a.price)[0]
+    patch(key, {
+      kitId,
+      imagePath: kit.image_path ?? '',
+      priceId: first?.id ?? CUSTOM,
+      unit: first ? dec(first.price) : '',
+      description: kit.name,
+      freeCost: dec(kd.costOf(kitId).total),
+    })
+  }
+
+  function pickKitPrice(key: string, priceId: string) {
+    if (priceId === CUSTOM) return patch(key, { priceId: CUSTOM })
+    const pr = kd.prices.find((p) => p.id === priceId)
+    if (pr) patch(key, { priceId, unit: dec(pr.price) })
+  }
+
   const calc = (l: Line) => {
     const qty = parseNum(l.qty)
     const price = parseNum(l.unit)
@@ -216,7 +267,7 @@ export function QuoteEditor() {
       total,
       cost: okQty ? qty * unitCost : 0,
       margin: okPrice && price > 0 ? (price - unitCost) / price : null,
-      valid: okQty && okPrice && (l.kind === 'free' ? l.description.trim() !== '' : l.productId !== '' && l.formatId !== ''),
+      valid: okQty && okPrice && (l.kind === 'product' ? l.productId !== '' && l.formatId !== '' : l.description.trim() !== '' && (l.kind !== 'kit' || l.kitId !== '')),
     }
   }
 
@@ -239,13 +290,14 @@ export function QuoteEditor() {
     const items = lines.map((l) => {
       const qty = parseNum(l.qty)
       const unit_price = parseNum(l.unit)
-      if (l.kind === 'free') return { description: l.description.trim(), quantity: qty, unit_price, cost: parseNum(l.freeCost) || 0 }
+      if (l.kind !== 'product') return { description: l.description.trim(), quantity: qty, unit_price, cost: parseNum(l.freeCost) || 0, image_path: l.imagePath || undefined }
       return {
         product_id: l.productId,
         format_id: l.formatId,
         quantity: qty,
         unit_price,
         description: l.description.trim() || undefined,
+        image_path: l.imagePath || undefined,
         ...(l.bundle > 1 ? { bundle_size: l.bundle } : {}),
       }
     })
@@ -264,10 +316,16 @@ export function QuoteEditor() {
       p_notes: notes.trim() || null,
       p_items: items,
     })
+    if (error) {
+      setBusy(false)
+      return toast(friendlyError(error), 'error')
+    }
+    const saved = data as string
+    const terms = await supabase.rpc('set_quote_payment_terms', { p_quote_id: saved, p_terms: payTerms })
     setBusy(false)
-    if (error) return toast(friendlyError(error), 'error')
-    toast('Orçamento salvo')
-    navigate(`/orcamentos/${data as string}`)
+    if (terms.error) toast(`Orçamento salvo, mas a forma de pagamento não foi gravada. ${friendlyError(terms.error)}`, 'error')
+    else toast('Orçamento salvo')
+    navigate(`/orcamentos/${saved}`)
   }
 
   if (loading) return <p className="muted">Carregando…</p>
@@ -342,14 +400,21 @@ export function QuoteEditor() {
               <button
                 type="button"
                 className="btn btn-small"
-                onClick={() => setLines((ls) => [...ls, { key: newKey(), kind: 'product', productId: '', formatId: '', priceId: '', bundle: 1, description: '', qty: '', unit: '', freeCost: '' }])}
+                onClick={() => setLines((ls) => [...ls, { key: newKey(), kind: 'product', kitId: '', imagePath: '', productId: '', formatId: '', priceId: '', bundle: 1, description: '', qty: '', unit: '', freeCost: '' }])}
               >
                 + Produto
               </button>
               <button
                 type="button"
                 className="btn btn-small"
-                onClick={() => setLines((ls) => [...ls, { key: newKey(), kind: 'free', productId: '', formatId: '', priceId: '', bundle: 1, description: '', qty: '1', unit: '', freeCost: '' }])}
+                onClick={() => setLines((ls) => [...ls, { key: newKey(), kind: 'kit', kitId: '', imagePath: '', productId: '', formatId: '', priceId: '', bundle: 1, description: '', qty: '1', unit: '', freeCost: '' }])}
+              >
+                + Kit
+              </button>
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => setLines((ls) => [...ls, { key: newKey(), kind: 'free', kitId: '', imagePath: '', productId: '', formatId: '', priceId: '', bundle: 1, description: '', qty: '1', unit: '', freeCost: '' }])}
               >
                 + Item livre
               </button>
@@ -357,7 +422,7 @@ export function QuoteEditor() {
           </header>
 
           {lines.length === 0 ? (
-            <p className="muted">Nenhum item ainda. Use “+ Produto” para escolher dos seus produtos, ou “+ Item livre” para serviços e entregas.</p>
+            <p className="muted">Nenhum item ainda. Use “+ Produto” ou “+ Kit” para escolher do seu catálogo, ou “+ Item livre” para serviços e entregas.</p>
           ) : (
             <ul className="q-lines">
               {lines.map((l, idx) => {
@@ -420,6 +485,43 @@ export function QuoteEditor() {
                       </div>
                     ) : null}
 
+                    {l.kind === 'kit' && (
+                      <div className="q-pick">
+                        <div className="field q-pick-thumb">
+                          {l.kitId && (() => {
+                            const k = kd.kits.find((x) => x.id === l.kitId)
+                            return k ? <ProductThumb name={k.name} path={k.image_path} size="sm" /> : null
+                          })()}
+                          <div className="q-pick-field">
+                            <label htmlFor={`${l.key}-k`}>Kit</label>
+                            <select id={`${l.key}-k`} value={l.kitId} onChange={(e) => pickKit(l.key, e.target.value)}>
+                              <option value="">Escolha…</option>
+                              {activeKits.map((k) => (
+                                <option key={k.id} value={k.id}>
+                                  {k.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        {l.kitId && (
+                          <div className="field">
+                            <label htmlFor={`${l.key}-kp`}>Preço do kit</label>
+                            <select id={`${l.key}-kp`} value={l.priceId} onChange={(e) => pickKitPrice(l.key, e.target.value)}>
+                              {kd.prices
+                                .filter((p) => p.kit_id === l.kitId)
+                                .map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name} · {moneyAuto(p.price)}
+                                  </option>
+                                ))}
+                              <option value={CUSTOM}>Outro valor</option>
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <div className="field">
                       <label htmlFor={`${l.key}-d`}>{l.kind === 'free' ? 'Descrição' : 'Texto no orçamento'}</label>
                       <input
@@ -428,6 +530,18 @@ export function QuoteEditor() {
                         onChange={(e) => patch(l.key, { description: e.target.value })}
                         placeholder={l.kind === 'free' ? 'Ex.: Taxa de entrega, arte personalizada…' : ''}
                       />
+                    </div>
+
+                    <div className="q-photo">
+                      {l.imagePath ? <img className="thumb" src={productImageUrl(l.imagePath) ?? ''} alt="" /> : <span className="thumb sm muted" aria-hidden="true">—</span>}
+                      <button type="button" className="btn btn-small" onClick={() => setPickerFor(l.key)}>
+                        {l.imagePath ? 'Trocar foto' : 'Escolher foto do catálogo'}
+                      </button>
+                      {l.imagePath && (
+                        <button type="button" className="link-btn" onClick={() => patch(l.key, { imagePath: '' })}>
+                          Tirar foto
+                        </button>
+                      )}
                     </div>
 
                     <div className="q-nums">
@@ -441,7 +555,7 @@ export function QuoteEditor() {
                           id={`${l.key}-u`}
                           inputMode="decimal"
                           value={l.unit}
-                          onChange={(e) => patch(l.key, { unit: e.target.value, ...(l.kind === 'product' ? { priceId: CUSTOM } : {}) })}
+                          onChange={(e) => patch(l.key, { unit: e.target.value, ...(l.kind !== 'free' ? { priceId: CUSTOM } : {}) })}
                         />
                       </div>
                       {l.kind === 'free' && (
@@ -467,6 +581,19 @@ export function QuoteEditor() {
               })}
             </ul>
           )}
+        </section>
+
+        <section className="panel">
+          <h2 className="section-title">Pagamento</h2>
+          <PaymentTermsField
+            value={payTerms}
+            onChange={(v) => {
+              setPayTerms(v)
+              setPayTouched(true)
+            }}
+            methods={pay.methods}
+            reload={pay.reload}
+          />
         </section>
 
         <section className="panel">
@@ -509,6 +636,17 @@ export function QuoteEditor() {
           </button>
         </div>
       </form>
+
+      <PhotoPicker
+        open={pickerFor !== null}
+        onClose={() => setPickerFor(null)}
+        selected={lines.find((x) => x.key === pickerFor)?.imagePath}
+        productId={lines.find((x) => x.key === pickerFor)?.productId || undefined}
+        onPick={(path) => {
+          if (pickerFor) patch(pickerFor, { imagePath: path ?? '' })
+          setPickerFor(null)
+        }}
+      />
 
       <CustomerDialog
         key={newCustomer ? 'open' : 'closed'}

@@ -36,6 +36,15 @@ export function Quotes() {
     void load()
   }, [load])
 
+  async function remove(x: Quote, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!window.confirm(`Excluir o orçamento #${String(x.number).padStart(2, '0')} para sempre? Isso não pode ser desfeito.`)) return
+    const { error } = await supabase.rpc('delete_quote', { p_quote_id: x.id })
+    if (error) return toast(friendlyError(error), 'error')
+    toast('Orçamento excluído')
+    setQuotes((list) => list.filter((q) => q.id !== x.id))
+  }
+
   const customerName = useMemo(() => new Map(customers.map((c) => [c.id, c.name])), [customers])
   const q = query.trim().toLowerCase()
   const visible = quotes.filter((x) => {
@@ -84,6 +93,7 @@ export function Quotes() {
                 <th className="num">Total</th>
                 <th className="num">Margem</th>
                 <th>Situação</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -105,6 +115,13 @@ export function Quotes() {
                     <td data-label="Margem" className="num">{pct(Number(x.margin) / 100)}</td>
                     <td data-label="Situação">
                       <span className={`pill-status tone-${st.tone}`}>{st.label}</span>
+                    </td>
+                    <td data-label="">
+                      {x.status !== 'APPROVED' && (
+                        <button className="link-btn" onClick={(e) => void remove(x, e)}>
+                          Excluir
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )

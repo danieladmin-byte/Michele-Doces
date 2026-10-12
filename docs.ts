@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import logoImg from './logo.jpg'
+import { productImageUrl } from './images'
 import type { PdfData } from './pdf'
 import type { Company, Customer, DocItem, OrderStatus, QuoteStatus } from './types'
 
@@ -23,8 +24,8 @@ export const ORDER_STATUS: Record<OrderStatus, { label: string; tone: 'good' | '
 export const DEFAULT_TERMS = ['50% Antecipado', '50% na Entrega']
 
 /** Termos do PDF: uma linha por linha escrita em Configurações; sem nada, o padrão da Michele. */
-export function termsOf(company: Company): string[] {
-  const lines = (company.quote_terms ?? '')
+export function termsOf(company: Company, own?: string | null): string[] {
+  const lines = ((own && own.trim()) || company.quote_terms || '')
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
@@ -53,6 +54,7 @@ export function pdfDataFor(
   customer: Customer | null,
   doc: DocLike,
   items: DocItem[],
+  paymentTerms?: string | null,
 ): PdfData {
   return {
     kind,
@@ -66,12 +68,13 @@ export function pdfDataFor(
       quantity: Number(i.quantity),
       unit_price: Number(i.unit_price),
       total_price: Number(i.total_price),
+      imageUrl: productImageUrl(i.image_path),
     })),
     subtotal: Number(doc.subtotal),
     discount: Number(doc.discount),
     shipping: Number(doc.shipping),
     total: Number(doc.total),
-    terms: termsOf(company),
+    terms: termsOf(company, paymentTerms),
     phone: company.phone,
     instagram: company.instagram ?? null,
     logoUrl: logoUrlOf(company),

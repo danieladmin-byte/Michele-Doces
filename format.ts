@@ -93,3 +93,6 @@ export function perBigUnit(cost: number, unit: BaseUnit): { value: number; label
   if (unit === 'ml') return { value: cost * 1000, label: 'L' }
   return { value: cost, label: 'un' }
 }
+
+/** Número como texto editável em pt-BR (vírgula decimal, até 4 casas). */
+export const dec = (n: number) => String(Number(n.toFixed(4))).replace('.', ',')

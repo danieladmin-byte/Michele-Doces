@@ -9,6 +9,7 @@ import { friendlyError } from './errors'
 import { moneyAuto, num, parseNum } from './format'
 import { marginTone, pct } from './pricing'
 import { ProductThumb } from './ProductThumb'
+import { PhotoPicker } from './PhotoPicker'
 import type { FormatCost, PriceMargin, Product, ProductCategory } from './types'
 
 const ALL = '__all__'
@@ -229,6 +230,8 @@ function NewProductDialog({
   const [formatName, setFormatName] = useState('Padrão')
   const [yieldQty, setYieldQty] = useState('')
   const [busy, setBusy] = useState(false)
+  const [photo, setPhoto] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -249,7 +252,7 @@ function NewProductDialog({
       }
       const { data: prod, error: pe } = await supabase
         .from('products')
-        .insert({ company_id: company.id, name: name.trim(), category_id: catId })
+        .insert({ company_id: company.id, name: name.trim(), category_id: catId, image_path: photo })
         .select('id')
         .single()
       if (pe) throw pe
@@ -293,6 +296,20 @@ function NewProductDialog({
             <input id="np-newcat" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} required placeholder="Ex.: Brigadeiros" />
           </div>
         )}
+        <div className="field">
+          <label>Foto (opcional)</label>
+          <div className="q-photo">
+            <ProductThumb name={name || '?'} path={photo} />
+            <button type="button" className="btn btn-small" onClick={() => setPicking(true)}>
+              {photo ? 'Trocar foto' : 'Escolher do catálogo'}
+            </button>
+            {photo && (
+              <button type="button" className="link-btn" onClick={() => setPhoto(null)}>
+                Tirar foto
+              </button>
+            )}
+          </div>
+        </div>
         <div className="grid-2">
           <div className="field">
             <label htmlFor="np-fmt">Formato</label>
@@ -313,6 +330,15 @@ function NewProductDialog({
           </button>
         </div>
       </form>
+      <PhotoPicker
+        open={picking}
+        onClose={() => setPicking(false)}
+        selected={photo}
+        onPick={(p) => {
+          setPhoto(p)
+          setPicking(false)
+        }}
+      />
     </Dialog>
   )
 }

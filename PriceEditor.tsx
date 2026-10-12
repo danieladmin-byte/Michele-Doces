@@ -4,7 +4,7 @@ import { supabase } from './supabase'
 import { useToast } from './Toast'
 import { Dialog } from './Dialog'
 import { friendlyError } from './errors'
-import { moneyAuto, num, parseNum } from './format'
+import { dec, moneyAuto, num, parseNum } from './format'
 import { calcPrice, marginTone, pct, roundUp, suggestedPrice, times } from './pricing'
 import type { FormatCost, ProductPrice } from './types'
 
@@ -16,7 +16,6 @@ type Props = {
   onChanged: () => Promise<void>
 }
 
-const dec = (n: number) => String(n).replace('.', ',')
 
 /** Preços de um formato. Ao mudar o valor, margem, lucro e markup se atualizam na hora. */
 export function PriceEditor({ companyId, productId, format, prices, onChanged }: Props) {

@@ -9,7 +9,10 @@ import { Ingredients } from './Ingredients'
 import { Recipes } from './Recipes'
 import { RecipeDetail } from './RecipeDetail'
 import { Products } from './Products'
-import { Menu } from './Menu'
+import { MenuOnline, MenuPrint } from './Menu'
+import { Kits } from './Kits'
+import { Catalog } from './Catalog'
+import { KitDetail } from './KitDetail'
 import { ProductDetail } from './ProductDetail'
 import { PriceTable } from './PriceTable'
 import { Purchases } from './Purchases'
@@ -51,7 +54,11 @@ export default function App() {
         <Route path="ingredientes" element={<Ingredients />} />
         <Route path="receitas" element={<Recipes />} />
         <Route path="receitas/:id" element={<RecipeDetail />} />
-        <Route path="cardapio" element={<Menu />} />
+        <Route path="cardapio" element={<MenuPrint />} />
+        <Route path="cardapio-online" element={<MenuOnline />} />
+        <Route path="catalogo" element={<Catalog />} />
+        <Route path="kits" element={<Kits />} />
+        <Route path="kits/:id" element={<KitDetail />} />
         <Route path="produtos" element={<Products />} />
         <Route path="produtos/:id" element={<ProductDetail />} />
         <Route path="tabela" element={<PriceTable />} />

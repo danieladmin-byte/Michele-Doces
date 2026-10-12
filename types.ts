@@ -16,7 +16,6 @@ export type Company = {
   /** Existe después de la migración 004. */
   instagram?: string | null
   /** Existe después de la migración 007: QR PIX que se muestra en el cardápio. */
-  menu_pix_id?: string | null
 }
 
 export type Category = { id: string; name: string }
@@ -236,6 +235,8 @@ export type Quote = {
   profit: number
   margin: number
   notes: string | null
+  /** Existe después de la migración 008: condiciones de pago de esta cotización (una por línea). */
+  payment_terms?: string | null
   created_at: string
 }
 
@@ -248,6 +249,7 @@ export type DocItem = {
   unit_price: number
   cost_snapshot: number
   total_price: number
+  image_path?: string | null
 }
 
 export type Order = {
@@ -270,4 +272,16 @@ export type Order = {
 }
 
 export type PixAccount = { id: string; name: string; image_path: string }
-export type MenuItem = { id: string; price_id: string }
+export type MenuKind = 'ONLINE' | 'PRINT'
+export type MenuItem = { id: string; kind: MenuKind; price_id: string | null; kit_price_id: string | null; position: number }
+export type MenuSettings = { kind: MenuKind; title: string; show_qr: boolean; show_prices: boolean; pix_id: string | null }
+
+export type PaymentMethod = { id: string; name: string; terms: string; is_default: boolean }
+
+export type Kit = { id: string; name: string; description: string | null; image_path: string | null; active: boolean }
+export type KitItem = { id: string; kit_id: string; format_id: string; quantity: number }
+export type KitPackaging = { id: string; kit_id: string; ingredient_id: string; quantity: number }
+export type KitExtra = { id: string; kit_id: string; description: string; amount: number }
+export type KitPrice = { id: string; kit_id: string; name: string; price: number }
+
+export type CatalogPhoto = { id: string; title: string; sku: string | null; category_id: string | null; product_id: string | null; image_path: string }

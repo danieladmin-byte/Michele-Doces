@@ -9,7 +9,8 @@ import { CostBuilder } from './CostBuilder'
 import { PriceEditor } from './PriceEditor'
 import { friendlyError } from './errors'
 import { ProductThumb } from './ProductThumb'
-import { removeProductImage, uploadProductImage } from './images'
+import { removeProductImage, setProductImagePath, uploadProductImage } from './images'
+import { PhotoPicker } from './PhotoPicker'
 import { moneyAuto, num, parseNum } from './format'
 import type { CostLine, ExtraCost, FormatCost, Ingredient, Product, ProductCategory, ProductFormat, ProductPrice, RecipeCost } from './types'
 
@@ -40,6 +41,7 @@ export function ProductDetail() {
   const [active, setActive] = useState(true)
   const [savingInfo, setSavingInfo] = useState(false)
   const [photoBusy, setPhotoBusy] = useState(false)
+  const [picking, setPicking] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -118,6 +120,21 @@ export function ProductDetail() {
     }
   }
 
+  async function onCatalogPick(path: string | null) {
+    setPicking(false)
+    if (!product || !path) return
+    setPhotoBusy(true)
+    try {
+      await setProductImagePath(product.id, path, product.image_path ?? null)
+      toast('Foto atualizada')
+      await load()
+    } catch (err) {
+      toast(friendlyError(err), 'error')
+    } finally {
+      setPhotoBusy(false)
+    }
+  }
+
   async function onRemovePhoto() {
     if (!product) return
     if (!window.confirm('Remover a foto deste produto?')) return
@@ -161,6 +178,9 @@ export function ProductDetail() {
             <button className="btn" disabled={photoBusy} onClick={() => fileRef.current?.click()}>
               {photoBusy ? 'Enviando…' : product.image_path ? 'Trocar foto' : 'Adicionar foto'}
             </button>
+            <button className="btn" disabled={photoBusy} onClick={() => setPicking(true)}>
+              Escolher do catálogo
+            </button>
             {product.image_path && !photoBusy && (
               <button className="link-btn" onClick={() => void onRemovePhoto()}>
                 Remover foto
@@ -173,6 +193,8 @@ export function ProductDetail() {
           Duplicar produto
         </button>
       </header>
+
+      <PhotoPicker open={picking} onClose={() => setPicking(false)} onPick={(p) => void onCatalogPick(p)} selected={product.image_path} productId={product.id} />
 
       <div className="tabs" role="tablist" aria-label="Formatos">
         {formats.map((f) => (
