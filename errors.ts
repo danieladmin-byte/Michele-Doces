@@ -14,6 +14,8 @@ const MESSAGES: Record<string, string> = {
   RECIPE_INACTIVE: 'Esta receita está inativa.',
   RECIPE_NOT_FOUND: 'Receita não encontrada.',
   PRODUCT_NOT_FOUND: 'Produto não encontrado.',
+  PRODUCT_IN_USE: 'Este produto já aparece em orçamentos ou pedidos. Para não perder o histórico, desmarque “Produto ativo” em vez de excluir.',
+  PRODUCT_IN_KIT: 'Este produto faz parte de um kit. Tire-o do kit antes de excluir.',
   PRODUCT_WITHOUT_FORMAT: 'O produto não tem um formato ativo.',
   PRODUCT_WITHOUT_PRICE: 'O produto não tem preço cadastrado.',
   INVALID_NAME: 'Informe um nome.',

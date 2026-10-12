@@ -525,6 +525,9 @@ body:has(.menu-page) { background: #fff; }
 .menu-settings { display: grid; gap: 14px; }
 .menu-settings .pix-controls .field select { max-width: 340px; }
 .menu-title-field { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 12px; align-items: end; }
+.menu-suggest { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; background: var(--pistache); padding-bottom: 16px; }
+.menu-suggest > div { flex: 1 1 240px; min-width: 0; }
+.menu-suggest p { margin: 2px 0 0; }
 .menu-checks { display: flex; flex-wrap: wrap; gap: 8px 24px; }
 .menu-export { display: flex; flex-wrap: wrap; gap: 8px; border-top: 1.5px dashed var(--line); padding-top: 14px; }
 .menu-online-grid { display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 24px; align-items: start; }

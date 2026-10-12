@@ -64,6 +64,13 @@ export async function removeProductImage(productId: string, oldPath: string | nu
   await dropOld(oldPath)
 }
 
+/** Exclui o produto (formatos, preços e custos juntos) e apaga a foto, se ela for só dele. */
+export async function deleteProduct(productId: string, imagePath: string | null): Promise<void> {
+  const { error } = await supabase.rpc('delete_product', { p_product_id: productId })
+  if (error) throw error
+  await dropOld(imagePath)
+}
+
 /** Reduz a imagem mantendo a proporção (para o QR Code PIX continuar nítido e legível). */
 export async function resizeFit(file: File, max = 900, type: 'image/png' | 'image/jpeg' = 'image/png'): Promise<Blob> {
   const url = URL.createObjectURL(file)

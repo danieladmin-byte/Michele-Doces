@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import logoImg from './logo-transparente.png'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
@@ -87,7 +88,7 @@ function MenuEditor({ kind }: { kind: MenuKind }) {
           <h1>{KIND_INFO[kind].name}</h1>
           <p className="sub">
             {online
-              ? 'Arte colorida para postar no Instagram e mandar no WhatsApp.'
+              ? 'Arte colorida de divulgação (sem PIX) para postar no Instagram e mandar no WhatsApp.'
               : 'Fundo branco, para imprimir gastando pouca tinta.'}
           </p>
         </div>
@@ -109,17 +110,19 @@ function MenuEditor({ kind }: { kind: MenuKind }) {
         <section className="panel menu-settings no-print" aria-label="Ajustes do cardápio">
           <TitleField value={settings.title} onSave={(title) => void m.saveSettings({ title })} />
           <div className="menu-checks">
-            <label className="check">
-              <input type="checkbox" checked={settings.show_qr} onChange={(e) => void m.saveSettings({ show_qr: e.target.checked })} />
-              Mostrar QR Code PIX
-            </label>
+            {!online && (
+              <label className="check">
+                <input type="checkbox" checked={settings.show_qr} onChange={(e) => void m.saveSettings({ show_qr: e.target.checked })} />
+                Mostrar QR Code PIX
+              </label>
+            )}
             <label className="check">
               <input type="checkbox" checked={settings.show_prices} onChange={(e) => void m.saveSettings({ show_prices: e.target.checked })} />
               Mostrar o preço de cada sabor
             </label>
           </div>
 
-          {settings.show_qr && (
+          {!online && settings.show_qr && (
             <div className="pix-controls">
               {m.pix.length > 0 && (
                 <div className="field">
@@ -160,6 +163,20 @@ function MenuEditor({ kind }: { kind: MenuKind }) {
               </button>
             )}
           </div>
+        </section>
+      )}
+
+      {editing && m.suggestedKits.length > 0 && (
+        <section className="panel menu-suggest no-print" aria-label="Kits sugeridos">
+          <div>
+            <strong>Kits com os sabores deste cardápio</strong>
+            <p className="muted small">
+              {m.suggestedKits.map(({ kp, kit }) => `${kit.name}${m.kitDetailOf(kp) ? ` · ${m.kitDetailOf(kp)}` : ''} (${brl(kp.price)})`).join(' · ')}
+            </p>
+          </div>
+          <button className="btn btn-small" onClick={() => void m.addItems({ priceIds: [], kitPriceIds: m.suggestedKits.map((x) => x.kp.id) })}>
+            {m.suggestedKits.length === 1 ? 'Adicionar este kit' : `Adicionar os ${m.suggestedKits.length} kits`}
+          </button>
         </section>
       )}
 
@@ -387,7 +404,7 @@ function OnlinePreview({ render, title, children }: { render: ReturnType<typeof 
         {size && <p className="hint">{`${size.w} × ${size.h} px`}</p>}
         {tall && (
           <p className="hint">
-            Esta arte ficou comprida. No feed do Instagram o ideal é até 1080 × 1350 px; para ficar menor, tire alguns itens ou desligue o QR Code.
+            Esta arte ficou comprida. No feed do Instagram o ideal é até 1080 × 1350 px; para ficar menor, tire alguns itens.
           </p>
         )}
       </div>
@@ -403,16 +420,19 @@ function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnTy
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const { reload } = data
   useEffect(() => {
     if (open) {
       setPicked(new Set())
       setQuery('')
       setTab('p')
+      void reload()
     }
-  }, [open])
+  }, [open, reload])
 
   const inMenu = useMemo(() => new Set(data.items.map((i) => (i.price_id ? `p:${i.price_id}` : `k:${i.kit_price_id}`))), [data.items])
   const q = query.trim().toLowerCase()
+  const suggested = useMemo(() => new Set(data.suggestedKits.map((x) => x.kp.id)), [data.suggestedKits])
 
   const products = data.margins
     .filter((x) => x.product_name.toLowerCase().includes(q))
@@ -420,7 +440,12 @@ function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnTy
   const kits = data.kitPrices
     .map((kp) => ({ kp, kit: data.kitById.get(kp.kit_id) }))
     .filter((x): x is { kp: (typeof data.kitPrices)[number]; kit: NonNullable<typeof x.kit> } => !!x.kit && x.kit.active && x.kit.name.toLowerCase().includes(q))
-    .sort((a, b) => a.kit.name.localeCompare(b.kit.name, 'pt-BR') || a.kp.price - b.kp.price)
+    .sort((a, b) => Number(suggested.has(b.kp.id)) - Number(suggested.has(a.kp.id)) || a.kit.name.localeCompare(b.kit.name, 'pt-BR') || a.kp.price - b.kp.price)
+
+  // kits ativos que ainda não têm preço: aparecem desabilitados, com atalho para definir o preço
+  const kitsNoPrice = data.kits
+    .filter((k) => k.active && k.name.toLowerCase().includes(q) && !data.kitPrices.some((p) => p.kit_id === k.id))
+    .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
 
   function toggle(key: string) {
     setPicked((s) => {
@@ -459,7 +484,7 @@ function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnTy
       </div>
       <ul className="pick-list">
         {tab === 'p' && products.length === 0 && <li className="muted">Nenhum produto com preço encontrado.</li>}
-        {tab === 'k' && kits.length === 0 && <li className="muted">Nenhum kit com preço encontrado. Crie o kit e defina o preço na aba Kits.</li>}
+        {tab === 'k' && kits.length === 0 && kitsNoPrice.length === 0 && <li className="muted">Nenhum kit encontrado. Crie o kit na aba Kits.</li>}
         {tab === 'p' &&
           products.map((x) => {
             const key = `p:${x.price_id}`
@@ -493,6 +518,7 @@ function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnTy
                   <span className="pick-name">
                     {kit.name}
                     {d && <small>{d}</small>}
+                    {suggested.has(kp.id) && <small>usa os sabores do cardápio</small>}
                     {already && <small>já está no cardápio</small>}
                   </span>
                   <b>{brl(kp.price)}</b>
@@ -500,6 +526,22 @@ function AddItemsDialog({ open, data, onClose }: { open: boolean; data: ReturnTy
               </li>
             )
           })}
+        {tab === 'k' &&
+          kitsNoPrice.map((k) => (
+            <li key={`np:${k.id}`}>
+              <div className="pick-row is-off">
+                <input type="checkbox" disabled aria-label={`${k.name} (sem preço)`} />
+                <ProductThumb name={k.name} path={k.image_path} size="sm" />
+                <span className="pick-name">
+                  {k.name}
+                  <small>sem preço ainda</small>
+                </span>
+                <Link to={`/kits/${k.id}`} className="link-btn">
+                  Definir preço
+                </Link>
+              </div>
+            </li>
+          ))}
       </ul>
       <div className="dialog-actions">
         <button type="button" className="btn" onClick={onClose}>

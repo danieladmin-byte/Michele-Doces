@@ -9,7 +9,7 @@ import { CostBuilder } from './CostBuilder'
 import { PriceEditor } from './PriceEditor'
 import { friendlyError } from './errors'
 import { ProductThumb } from './ProductThumb'
-import { removeProductImage, setProductImagePath, uploadProductImage } from './images'
+import { deleteProduct, removeProductImage, setProductImagePath, uploadProductImage } from './images'
 import { PhotoPicker } from './PhotoPicker'
 import { moneyAuto, num, parseNum } from './format'
 import type { CostLine, ExtraCost, FormatCost, Ingredient, Product, ProductCategory, ProductFormat, ProductPrice, RecipeCost } from './types'
@@ -102,6 +102,18 @@ export function ProductDetail() {
     if (error) return toast(friendlyError(error), 'error')
     toast('Produto atualizado')
     await load()
+  }
+
+  async function removeProduct() {
+    if (!product) return
+    if (!window.confirm(`Excluir o produto “${product.name}” com todos os formatos, preços e custos? Não dá para desfazer.`)) return
+    try {
+      await deleteProduct(product.id, product.image_path ?? null)
+      toast('Produto excluído')
+      navigate('/produtos')
+    } catch (err) {
+      toast(friendlyError(err), 'error')
+    }
   }
 
   async function onPhoto(file: File | undefined) {
@@ -278,6 +290,9 @@ export function ProductDetail() {
             Produto ativo
           </label>
           <div className="dialog-actions">
+            <button type="button" className="link-btn" onClick={() => void removeProduct()}>
+              Excluir produto
+            </button>
             <button className="btn btn-primary" disabled={savingInfo || !name.trim()}>
               {savingInfo ? 'Salvando…' : 'Salvar dados'}
             </button>

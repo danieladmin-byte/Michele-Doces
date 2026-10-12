@@ -1,6 +1,6 @@
 /**
  * Cardápio como imagem (para postar no Instagram) e como PDF.
- *  - ONLINE: arte colorida, no estilo "Sabores Disponíveis" (1080 px de largura).
+ *  - ONLINE: arte colorida de divulgação, no estilo "Sabores Disponíveis" (1080 px de largura), sem PIX.
  *  - PRINT:  fundo branco, simples e barato de imprimir (A4).
  * Tudo é desenhado em canvas; o PDF só embrulha essas imagens.
  */
@@ -147,9 +147,9 @@ async function drawOnline(d: MenuRender): Promise<HTMLCanvasElement> {
   const STEP = 295
   const TOP = 340
   const rows = Math.ceil(d.flavors.length / 2)
-  const leftBottom = TOP + Math.max(rows, 2) * STEP + 20
+  const cardsEnd = TOP + Math.max(rows, 2) * STEP - (STEP - CH)
 
-  // coluna da direita: logo, nuvem, kits, QR
+  // coluna da direita: logo, nuvem e kits (o cardápio online é de divulgação: não leva PIX)
   const RX = 700
   const RW = 340
   const cloudY = 330
@@ -157,15 +157,12 @@ async function drawOnline(d: MenuRender): Promise<HTMLCanvasElement> {
   const kitH = d.kits.length > 0 ? 114 + d.kits.length * 86 : 0
   const kitY = rightBottom + 30
   if (kitH) rightBottom = kitY + kitH
-  const qrH = d.qr ? 400 : 0
-  const qrY = rightBottom + 30
-  if (qrH) rightBottom = qrY + qrH
   const contact = contactLines(d)
-  const H = Math.max(1080, leftBottom + (contact.length ? 28 + 14 + contact.length * 32 + 20 : 0), rightBottom + 235)
+  const pillH = 14 + contact.length * 32
+  const H = Math.max(1080, cardsEnd + (contact.length ? 24 + pillH + 26 : 50), rightBottom + 235)
 
-  const [logo, qrImg, ...photos] = await Promise.all([
+  const [logo, ...photos] = await Promise.all([
     tryImage(d.logoUrl).then((x) => x ?? tryImage(logoDefault)),
-    tryImage(d.qr?.url),
     ...d.flavors.map((f) => tryImage(f.imageUrl)),
   ])
 
@@ -260,13 +257,12 @@ async function drawOnline(d: MenuRender): Promise<HTMLCanvasElement> {
     g.strokeStyle = LINE
     g.stroke()
     // foto
-    const px = x + 22
-    const py = y + 54
-    const pw = CW - 44
-    const ph = CH - 54 - 22
+    const ps = 184 // foto quadrada, centralizada e com margem dentro do cartão
+    const px = x + (CW - ps) / 2
+    const py = y + 62
     const img = photos[i]
-    if (img) cover(g, img, px, py, pw, ph, 22)
-    else placeholder(g, f.name, px, py, pw, ph, 22)
+    if (img) cover(g, img, px, py, ps, ps, 26)
+    else placeholder(g, f.name, px, py, ps, ps, 26)
     // fita com o nome (uma linha; nomes longos quebram em duas)
     const rw = 234
     const rx = x + (CW - rw) / 2
@@ -420,25 +416,6 @@ async function drawOnline(d: MenuRender): Promise<HTMLCanvasElement> {
     })
   }
 
-  // QR PIX
-  if (d.qr) {
-    const { x, w } = panel(qrY, qrH, 'PIX')
-    const qs = 230
-    rr(g, x + (w - qs - 20) / 2, qrY + 106, qs + 20, qs + 20, 18)
-    g.fillStyle = '#fff'
-    g.fill()
-    g.lineWidth = 2
-    g.strokeStyle = LINE
-    g.stroke()
-    if (qrImg) contain(g, qrImg, x + (w - qs) / 2, qrY + 116, qs, qs)
-    g.fillStyle = BROWN
-    g.textAlign = 'center'
-    g.textBaseline = 'middle'
-    const ns = fitSize(g, d.qr.name, 'MPoppins', 700, w - 40, 22, 12)
-    g.font = font(700, ns, 'MPoppins')
-    g.fillText(d.qr.name, x + w / 2, qrY + qrH - 30)
-  }
-
   // respingo de chocolate (canto inferior direito)
   {
     const k = 0.8 // altura do respingo
@@ -493,12 +470,11 @@ async function drawOnline(d: MenuRender): Promise<HTMLCanvasElement> {
     g.textBaseline = 'middle'
     g.font = font(700, 22, 'MPoppins')
     const tw = Math.max(...contact.map((l) => g.measureText(l).width))
-    const ph = 14 + contact.length * 32
-    rr(g, 36, H - 28 - ph, Math.min(tw + 44, 590), ph, 22)
+    rr(g, 36, H - 26 - pillH, Math.min(tw + 44, 590), pillH, 22)
     g.fillStyle = 'rgba(255,247,244,0.92)'
     g.fill()
     g.fillStyle = BROWN
-    contact.forEach((l, i) => g.fillText(l, 58, H - 28 - ph + 14 + 16 + i * 32))
+    contact.forEach((l, i) => g.fillText(l, 58, H - 26 - pillH + 14 + 16 + i * 32))
   }
   return c
 }

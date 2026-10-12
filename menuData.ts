@@ -16,11 +16,13 @@ export const KIND_INFO: Record<MenuKind, { name: string; defaultTitle: string; s
 
 type KitLite = { id: string; name: string; image_path: string | null; active: boolean }
 type KitPriceLite = { id: string; kit_id: string; name: string; price: number }
+type KitItemLite = { kit_id: string; format_id: string }
 
 export type MenuRow = {
   itemId: string
   kind: 'product' | 'kit'
   refId: string // price_id ou kit_price_id
+  productId?: string // só nos sabores
   name: string
   detail: string
   price: number
@@ -52,7 +54,7 @@ export function useMenuData(kind: MenuKind) {
   const [settings, setSettings] = useState<MenuSettings>({
     kind,
     title: KIND_INFO[kind].defaultTitle,
-    show_qr: true,
+    show_qr: kind === 'PRINT',
     show_prices: KIND_INFO[kind].showPrices,
     pix_id: null,
   })
@@ -61,12 +63,14 @@ export function useMenuData(kind: MenuKind) {
   const [kits, setKits] = useState<KitLite[]>([])
   const [kitPrices, setKitPrices] = useState<KitPriceLite[]>([])
   const [pix, setPix] = useState<PixAccount[]>([])
+  const [kitItems, setKitItems] = useState<KitItemLite[]>([])
+  const [formatProduct, setFormatProduct] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
     if (!company) return
     const c = company.id
-    const [mi, ms, pm, pr, kt, kp, px] = await Promise.all([
+    const [mi, ms, pm, pr, kt, kp, px, ki, fc] = await Promise.all([
       supabase.from('menu_items').select('id, kind, price_id, kit_price_id, position').eq('company_id', c).eq('kind', kind).order('position'),
       supabase.from('menu_settings').select('kind, title, show_qr, show_prices, pix_id').eq('company_id', c).eq('kind', kind).maybeSingle(),
       supabase.from('product_price_margins').select('*').eq('company_id', c),
@@ -74,8 +78,10 @@ export function useMenuData(kind: MenuKind) {
       supabase.from('kits').select('id, name, image_path, active').eq('company_id', c),
       supabase.from('kit_prices').select('id, kit_id, name, price').eq('company_id', c).order('price'),
       supabase.from('pix_accounts').select('id, name, image_path').eq('company_id', c).order('created_at'),
+      supabase.from('kit_items').select('kit_id, format_id').eq('company_id', c),
+      supabase.from('product_format_costs').select('format_id, product_id').eq('company_id', c),
     ])
-    const err = mi.error ?? ms.error ?? pm.error ?? pr.error ?? kt.error ?? kp.error ?? px.error
+    const err = mi.error ?? ms.error ?? pm.error ?? pr.error ?? kt.error ?? kp.error ?? px.error ?? ki.error ?? fc.error
     if (err) toast(friendlyError(err), 'error')
     setItems((mi.data ?? []) as MenuItem[])
     if (ms.data) setSettings(ms.data as MenuSettings)
@@ -84,6 +90,8 @@ export function useMenuData(kind: MenuKind) {
     setKits((kt.data ?? []) as KitLite[])
     setKitPrices(((kp.data ?? []) as KitPriceLite[]).map((x) => ({ ...x, price: Number(x.price) })))
     setPix((px.data ?? []) as PixAccount[])
+    setKitItems((ki.data ?? []) as KitItemLite[])
+    setFormatProduct(new Map(((fc.data ?? []) as { format_id: string; product_id: string }[]).map((x) => [x.format_id, x.product_id])))
     setLoading(false)
   }, [company, kind, toast])
 
@@ -121,7 +129,7 @@ export function useMenuData(kind: MenuKind) {
     for (const it of [...items].sort((a, b) => a.position - b.position)) {
       if (it.price_id) {
         const m = byPrice.get(it.price_id)
-        if (m) out.push({ itemId: it.id, kind: 'product', refId: m.price_id, name: m.product_name, detail: detailOf(m), price: Number(m.price), image: photos.get(m.product_id) ?? null })
+        if (m) out.push({ itemId: it.id, kind: 'product', refId: m.price_id, productId: m.product_id, name: m.product_name, detail: detailOf(m), price: Number(m.price), image: photos.get(m.product_id) ?? null })
       } else if (it.kit_price_id) {
         const kp = byKitPrice.get(it.kit_price_id)
         const kit = kp ? kitById.get(kp.kit_id) : undefined
@@ -133,6 +141,20 @@ export function useMenuData(kind: MenuKind) {
 
   const flavors = useMemo(() => rows.filter((r) => r.kind === 'product'), [rows])
   const kitRows = useMemo(() => rows.filter((r) => r.kind === 'kit'), [rows])
+  /** Kits (com preço) cujos produtos são todos sabores deste cardápio e que ainda não estão nele. */
+  const suggestedKits = useMemo(() => {
+    const inMenuProducts = new Set(flavors.map((r) => r.productId))
+    const inMenuKitPrices = new Set(kitRows.map((r) => r.refId))
+    return kitPrices
+      .filter((kp) => {
+        const kit = kitById.get(kp.kit_id)
+        if (!kit || !kit.active || inMenuKitPrices.has(kp.id)) return false
+        const products = kitItems.filter((i) => i.kit_id === kp.kit_id).map((i) => formatProduct.get(i.format_id))
+        return products.length > 0 && products.every((p) => !!p && inMenuProducts.has(p))
+      })
+      .map((kp) => ({ kp, kit: kitById.get(kp.kit_id)! }))
+  }, [flavors, kitRows, kitPrices, kitById, kitItems, formatProduct])
+
   const selectedPix = pix.find((p) => p.id === settings.pix_id) ?? null
 
   const render: MenuRender = useMemo(() => {
@@ -149,7 +171,7 @@ export function useMenuData(kind: MenuKind) {
       flavors: flavors.map(card),
       kits: kitRows.map(card),
       showPrices: settings.show_prices,
-      qr: settings.show_qr && selectedPix ? { url: productImageUrl(selectedPix.image_path) ?? '', name: selectedPix.name } : null,
+      qr: kind === 'PRINT' && settings.show_qr && selectedPix ? { url: productImageUrl(selectedPix.image_path) ?? '', name: selectedPix.name } : null,
       logoUrl: company?.logo_path ? supabase.storage.from('company-logos').getPublicUrl(company.logo_path).data.publicUrl : null,
       phone: company?.phone ?? null,
       instagram: company?.instagram ?? null,
@@ -234,7 +256,7 @@ export function useMenuData(kind: MenuKind) {
 
   return {
     items, settings, margins, photos, kits, kitPrices, pix, loading,
-    rows, flavors, kitRows, selectedPix, render, detailOf, kitDetailOf, kitById,
+    rows, flavors, kitRows, suggestedKits, selectedPix, render, detailOf, kitDetailOf, kitById,
     reload: load, saveSettings, addItems, removeItem, clearAll, move,
   }
 }
