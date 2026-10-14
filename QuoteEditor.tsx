@@ -71,6 +71,7 @@ export function QuoteEditor() {
   const [newCustomer, setNewCustomer] = useState(false)
   const [busy, setBusy] = useState(false)
   const [payTerms, setPayTerms] = useState('')
+  const [showUnit, setShowUnit] = useState(true)
   const [payTouched, setPayTouched] = useState(false)
   const pay = usePaymentMethods()
   const kd = useKitData()
@@ -118,6 +119,7 @@ export function QuoteEditor() {
           setPayTerms(quote.payment_terms)
           setPayTouched(true)
         }
+        setShowUnit(quote.show_unit_price !== false)
         setLines(
           ((it.data ?? []) as DocItem[]).map((x): Line => {
             if (x.product_id && x.format_id) {
@@ -321,9 +323,13 @@ export function QuoteEditor() {
       return toast(friendlyError(error), 'error')
     }
     const saved = data as string
-    const terms = await supabase.rpc('set_quote_payment_terms', { p_quote_id: saved, p_terms: payTerms })
+    const [terms, unit] = await Promise.all([
+      supabase.rpc('set_quote_payment_terms', { p_quote_id: saved, p_terms: payTerms }),
+      supabase.rpc('set_quote_show_unit_price', { p_quote_id: saved, p_show: showUnit }),
+    ])
     setBusy(false)
-    if (terms.error) toast(`Orçamento salvo, mas a forma de pagamento não foi gravada. ${friendlyError(terms.error)}`, 'error')
+    const failed = terms.error ?? unit.error
+    if (failed) toast(`Orçamento salvo, mas a forma de pagamento ou a opção do PDF não foi gravada. ${friendlyError(failed)}`, 'error')
     else toast('Orçamento salvo')
     navigate(`/orcamentos/${saved}`)
   }
@@ -594,6 +600,11 @@ export function QuoteEditor() {
             methods={pay.methods}
             reload={pay.reload}
           />
+          <label className="check" style={{ marginTop: 14 }}>
+            <input type="checkbox" checked={showUnit} onChange={(e) => setShowUnit(e.target.checked)} />
+            Mostrar o valor unitário no PDF
+          </label>
+          <p className="hint">Desmarque para o cliente ver só a quantidade e o total de cada item.</p>
         </section>
 
         <section className="panel">

@@ -237,6 +237,8 @@ export type Quote = {
   notes: string | null
   /** Existe después de la migración 008: condiciones de pago de esta cotización (una por línea). */
   payment_terms?: string | null
+  /** Existe después de la migración 008: ¿el PDF muestra el valor unitario? (por defecto sí) */
+  show_unit_price?: boolean
   created_at: string
 }
 
@@ -284,4 +286,5 @@ export type KitPackaging = { id: string; kit_id: string; ingredient_id: string; 
 export type KitExtra = { id: string; kit_id: string; description: string; amount: number }
 export type KitPrice = { id: string; kit_id: string; name: string; price: number }
 
-export type CatalogPhoto = { id: string; title: string; sku: string | null; category_id: string | null; product_id: string | null; image_path: string }
+export type CatalogTheme = { id: string; name: string }
+export type CatalogPhoto = { id: string; title: string; sku: string | null; category_id: string | null; theme_id: string | null; product_id: string | null; image_path: string }

@@ -74,12 +74,15 @@ export function OrderDetail() {
     setPdfBusy(true)
     try {
       let terms: string | null = null
+      let showUnit = true
       if (order.quote_id) {
-        const { data } = await supabase.from('quotes').select('payment_terms').eq('id', order.quote_id).maybeSingle()
-        terms = (data as { payment_terms: string | null } | null)?.payment_terms ?? null
+        const { data } = await supabase.from('quotes').select('payment_terms, show_unit_price').eq('id', order.quote_id).maybeSingle()
+        const q = data as { payment_terms: string | null; show_unit_price: boolean | null } | null
+        terms = q?.payment_terms ?? null
+        showUnit = q?.show_unit_price !== false
       }
       await downloadPdf(
-        pdfDataFor('FATURA', company, customer, { ...order, issue_date: order.created_at.slice(0, 10) }, items, terms),
+        pdfDataFor('FATURA', company, customer, { ...order, issue_date: order.created_at.slice(0, 10) }, items, terms, showUnit),
         pdfFileName('FATURA', order.number, customer),
       )
     } catch (err) {

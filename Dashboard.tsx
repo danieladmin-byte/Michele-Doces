@@ -3,15 +3,25 @@ import { Link } from 'react-router-dom'
 import { supabase } from './supabase'
 import { useAuth } from './auth'
 import { brl, formatQty, num } from './format'
+import { pct } from './pricing'
 import type { BaseUnit } from './types'
 
-type Summary = { month_sales: number; estimated_profit: number; open_quotes: number; stock_value: number }
+type Totals = {
+  total_sales: number
+  total_profit: number
+  orders_count: number
+  open_quotes: number
+  closed_quotes: number
+  month_sales: number
+  month_profit: number
+  stock_value: number
+}
 type Low = { id: string; name: string; unit: BaseUnit; current_stock: number; minimum_stock: number }
 type Top = { product_id: string; name: string; quantity_sold: number; revenue: number }
 
 export function Dashboard() {
   const { company } = useAuth()
-  const [summary, setSummary] = useState<Summary | null>(null)
+  const [totals, setTotals] = useState<Totals | null>(null)
   const [low, setLow] = useState<Low[]>([])
   const [top, setTop] = useState<Top[]>([])
   const [ingredientCount, setIngredientCount] = useState<number | null>(null)
@@ -23,7 +33,7 @@ export function Dashboard() {
     ;(async () => {
       setLoading(true)
       const [s, l, t, c] = await Promise.all([
-        supabase.rpc('dashboard_summary', { p_company_id: company.id }),
+        supabase.rpc('dashboard_totals', { p_company_id: company.id }),
         supabase.from('low_stock_ingredients').select('*').eq('company_id', company.id).order('name').limit(8),
         supabase
           .from('top_selling_products')
@@ -34,8 +44,8 @@ export function Dashboard() {
         supabase.from('ingredients').select('id', { count: 'exact', head: true }).eq('company_id', company.id),
       ])
       if (cancelled) return
-      const row = (s.data as Summary[] | null)?.[0]
-      setSummary(row ?? null)
+      const row = (s.data as Totals[] | null)?.[0]
+      setTotals(row ? Object.fromEntries(Object.entries(row).map(([k, v]) => [k, Number(v)])) as Totals : null)
       setLow((l.data ?? []) as Low[])
       setTop((t.data ?? []) as Top[])
       setIngredientCount(c.count ?? 0)
@@ -46,9 +56,13 @@ export function Dashboard() {
     }
   }, [company])
 
+  const sales = totals?.total_sales ?? 0
+  const profit = totals?.total_profit ?? 0
+  const orders = totals?.orders_count ?? 0
+
   return (
     <>
-      <header className="page-head">
+      <header className="page-head hero">
         <h1>Início</h1>
         <p className="sub">{company?.name}</p>
       </header>
@@ -71,27 +85,53 @@ export function Dashboard() {
         </section>
       )}
 
-      <section className="figures" aria-label="Resumo do mês">
-        <div className="figure">
-          <span className="figure-label">Vendas do mês</span>
-          <strong>{brl(summary?.month_sales)}</strong>
-        </div>
-        <div className="figure">
-          <span className="figure-label">Lucro estimado</span>
-          <strong>{brl(summary?.estimated_profit)}</strong>
-        </div>
-        <div className="figure">
-          <span className="figure-label">Orçamentos abertos</span>
-          <strong>{num(Number(summary?.open_quotes ?? 0))}</strong>
-        </div>
-        <div className="figure">
-          <span className="figure-label">Valor em estoque</span>
-          <strong>{brl(summary?.stock_value)}</strong>
-        </div>
+      <section className="kpis" aria-label="Resumo do negócio">
+        <article className="kpi t-sun big">
+          <span className="kpi-icon" aria-hidden="true">$</span>
+          <span className="kpi-label">Faturamento total</span>
+          <strong>{brl(sales)}</strong>
+          <small>{orders > 0 ? `ticket médio ${brl(sales / orders)}` : 'soma dos pedidos'}</small>
+        </article>
+        <article className="kpi t-mint big">
+          <span className="kpi-icon" aria-hidden="true">↗</span>
+          <span className="kpi-label">Lucro total</span>
+          <strong>{brl(profit)}</strong>
+          <small>{sales > 0 ? `margem de ${pct(profit / sales)}` : 'lucro dos pedidos'}</small>
+        </article>
+        <article className="kpi t-sky">
+          <span className="kpi-icon" aria-hidden="true">✎</span>
+          <span className="kpi-label">Orçamentos abertos</span>
+          <strong>{num(totals?.open_quotes ?? 0)}</strong>
+          <small>aguardando resposta</small>
+        </article>
+        <article className="kpi t-rose">
+          <span className="kpi-icon" aria-hidden="true">✓</span>
+          <span className="kpi-label">Orçamentos fechados</span>
+          <strong>{num(totals?.closed_quotes ?? 0)}</strong>
+          <small>aprovados, viraram pedido</small>
+        </article>
+        <article className="kpi t-lilac">
+          <span className="kpi-icon" aria-hidden="true">▤</span>
+          <span className="kpi-label">Quantidade de pedidos</span>
+          <strong>{num(orders)}</strong>
+          <small>sem contar os cancelados</small>
+        </article>
       </section>
 
+      <p className="month-strip" aria-label="Este mês">
+        <span>
+          Este mês <b>{brl(totals?.month_sales)}</b> em vendas
+        </span>
+        <span>
+          lucro <b>{brl(totals?.month_profit)}</b>
+        </span>
+        <span>
+          estoque <b>{brl(totals?.stock_value)}</b>
+        </span>
+      </p>
+
       <div className="two-col">
-        <section>
+        <section className="panel tint-rose">
           <h2 className="section-title">Estoque baixo</h2>
           {low.length === 0 ? (
             <p className="muted">Nenhum ingrediente abaixo do mínimo. Defina o estoque mínimo em cada ingrediente para ser avisado.</p>
@@ -109,7 +149,7 @@ export function Dashboard() {
           )}
         </section>
 
-        <section>
+        <section className="panel tint-sky">
           <h2 className="section-title">Mais vendidos</h2>
           {top.length === 0 ? (
             <p className="muted">Os produtos mais vendidos aparecem aqui quando houver pedidos aprovados.</p>

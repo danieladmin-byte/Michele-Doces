@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Dialog } from './Dialog'
 import { productImageUrl } from './images'
 import { ALL, NONE, filterPhotos, useCatalogData } from './catalogData'
+import { ThemeSelect } from './Themes'
 
 /** Escolhe uma foto do catálogo (com busca e famílias). onPick(null) = sem foto. */
 export function PhotoPicker({
@@ -21,15 +22,17 @@ export function PhotoPicker({
   const d = useCatalogData()
   const [tab, setTab] = useState(ALL)
   const [query, setQuery] = useState('')
+  const [theme, setTheme] = useState(ALL)
 
   useEffect(() => {
     if (open) {
       setTab(ALL)
       setQuery('')
+      setTheme(ALL)
     }
   }, [open])
 
-  const list = filterPhotos(d.photos, tab, query).sort(
+  const list = filterPhotos(d.photos, tab, query, theme).sort(
     (a, b) => Number(b.product_id === productId && !!productId) - Number(a.product_id === productId && !!productId),
   )
   const countOf = (cid: string | null) => d.photos.filter((p) => p.category_id === cid).length
@@ -39,6 +42,11 @@ export function PhotoPicker({
       <div className="field">
         <input type="search" placeholder="Buscar por nome ou código SKU" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar foto" />
       </div>
+      {d.themes.length > 0 && (
+        <div className="field">
+          <ThemeSelect themes={d.themes} photos={d.photos} value={theme} onChange={setTheme} />
+        </div>
+      )}
       <div className="tabs" role="tablist" aria-label="Famílias">
         <button type="button" role="tab" aria-selected={tab === ALL} className={`tab ${tab === ALL ? 'on' : ''}`} onClick={() => setTab(ALL)}>
           Todas

@@ -24,6 +24,14 @@ export const ORDER_STATUS: Record<OrderStatus, { label: string; tone: 'good' | '
 export const DEFAULT_TERMS = ['50% Antecipado', '50% na Entrega']
 
 /** Termos do PDF: uma linha por linha escrita em Configurações; sem nada, o padrão da Michele. */
+/** Texto de confirmação para excluir um orçamento (o aprovado leva o pedido junto). */
+export function quoteDeleteMessage(number: number, approved: boolean): string {
+  const n = `#${String(number).padStart(2, '0')}`
+  return approved
+    ? `Excluir o orçamento ${n}? Ele já foi aprovado: o pedido e a fatura dele também serão apagados. Isso não pode ser desfeito.`
+    : `Excluir o orçamento ${n} para sempre? Isso não pode ser desfeito.`
+}
+
 export function termsOf(company: Company, own?: string | null): string[] {
   const lines = ((own && own.trim()) || company.quote_terms || '')
     .split('\n')
@@ -55,6 +63,7 @@ export function pdfDataFor(
   doc: DocLike,
   items: DocItem[],
   paymentTerms?: string | null,
+  showUnitPrice = true,
 ): PdfData {
   return {
     kind,
@@ -79,6 +88,7 @@ export function pdfDataFor(
     instagram: company.instagram ?? null,
     logoUrl: logoUrlOf(company),
     fallbackLogoUrl: logoImg,
+    showUnitPrice,
   }
 }
 

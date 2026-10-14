@@ -7,6 +7,7 @@ import { Dialog } from './Dialog'
 import { friendlyError } from './errors'
 import { isImageInUse, productImageUrl, removeImageFile, uploadCatalogImage } from './images'
 import { ALL, NONE, filterPhotos, nextSku, useCatalogData } from './catalogData'
+import { ThemeSelect, ThemesDialog } from './Themes'
 import type { CatalogPhoto } from './types'
 
 const prettyTitle = (filename: string) =>
@@ -23,11 +24,13 @@ export function Catalog() {
   const d = useCatalogData()
   const [tab, setTab] = useState(ALL)
   const [query, setQuery] = useState('')
+  const [theme, setTheme] = useState(ALL)
+  const [themesOpen, setThemesOpen] = useState(false)
   const [progress, setProgress] = useState<string | null>(null)
   const [editing, setEditing] = useState<CatalogPhoto | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const visible = filterPhotos(d.photos, tab, query)
+  const visible = filterPhotos(d.photos, tab, query, theme)
   const countOf = (cid: string | null) => d.photos.filter((p) => p.category_id === cid).length
   const hasNone = countOf(null) > 0
 
@@ -46,6 +49,7 @@ export function Catalog() {
           sku: nextSku(d.photos, ok),
           image_path: path,
           category_id: tab !== ALL && tab !== NONE ? tab : null,
+          theme_id: theme !== ALL && theme !== NONE ? theme : null,
         })
         if (error) {
           await removeImageFile(path)
@@ -73,6 +77,9 @@ export function Catalog() {
         </div>
         <div className="block-add">
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => void onFiles(e.target.files)} />
+          <button className="btn" onClick={() => setThemesOpen(true)}>
+            Temas
+          </button>
           <button className="btn btn-primary" disabled={!!progress} onClick={() => fileRef.current?.click()}>
             {progress ?? 'Adicionar fotos'}
           </button>
@@ -99,6 +106,7 @@ export function Catalog() {
 
       <div className="toolbar">
         <input type="search" placeholder="Buscar por nome ou código SKU" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Buscar foto" />
+        <ThemeSelect themes={d.themes} photos={d.photos} value={theme} onChange={setTheme} />
       </div>
 
       {d.loading ? (
@@ -116,6 +124,7 @@ export function Catalog() {
                 <span className="cat-title">{p.title}</span>
                 {p.sku && <small className="cat-sku">{p.sku}</small>}
                 {p.category_id && <small className="cat-chip">{d.categories.find((c) => c.id === p.category_id)?.name}</small>}
+                {p.theme_id && <small className="cat-chip theme">{d.themes.find((t) => t.id === p.theme_id)?.name}</small>}
               </button>
             </li>
           ))}
@@ -126,6 +135,7 @@ export function Catalog() {
         key={editing?.id ?? 'none'}
         photo={editing}
         categories={d.categories}
+        themes={d.themes}
         products={d.products}
         onClose={() => setEditing(null)}
         onChanged={async () => {
@@ -133,6 +143,7 @@ export function Catalog() {
           await d.reload()
         }}
       />
+      <ThemesDialog open={themesOpen} onClose={() => setThemesOpen(false)} themes={d.themes} photos={d.photos} onChanged={d.reload} />
     </>
   )
 }
@@ -140,12 +151,14 @@ export function Catalog() {
 function EditDialog({
   photo,
   categories,
+  themes,
   products,
   onClose,
   onChanged,
 }: {
   photo: CatalogPhoto | null
   categories: { id: string; name: string }[]
+  themes: { id: string; name: string }[]
   products: { id: string; name: string }[]
   onClose: () => void
   onChanged: () => void | Promise<void>
@@ -153,6 +166,7 @@ function EditDialog({
   const toast = useToast()
   const [title, setTitle] = useState(photo?.title ?? '')
   const [categoryId, setCategoryId] = useState(photo?.category_id ?? '')
+  const [themeId, setThemeId] = useState(photo?.theme_id ?? '')
   const [productId, setProductId] = useState(photo?.product_id ?? '')
   const [sku, setSku] = useState(photo?.sku ?? '')
   const [busy, setBusy] = useState(false)
@@ -163,7 +177,7 @@ function EditDialog({
     setBusy(true)
     const { error } = await supabase
       .from('catalog_photos')
-      .update({ title: title.trim(), sku: sku.trim() || null, category_id: categoryId || null, product_id: productId || null })
+      .update({ title: title.trim(), sku: sku.trim() || null, category_id: categoryId || null, theme_id: themeId || null, product_id: productId || null })
       .eq('id', photo.id)
     setBusy(false)
     if (error) return toast(friendlyError(error), 'error')
@@ -199,6 +213,17 @@ function EditDialog({
             </div>
           </div>
           <div className="grid-2">
+            <div className="field">
+              <label htmlFor="ct-theme">Tema</label>
+              <select id="ct-theme" value={themeId} onChange={(e) => setThemeId(e.target.value)}>
+                <option value="">Sem tema</option>
+                {themes.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="field">
               <label htmlFor="ct-cat">Família</label>
               <select id="ct-cat" value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>

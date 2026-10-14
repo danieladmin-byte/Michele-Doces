@@ -36,6 +36,8 @@ export type PdfData = {
   /** Logo de la empresa (URL pública) y el logo por defecto si el primero falla. */
   logoUrl?: string | null
   fallbackLogoUrl: string
+  /** false = sem a coluna VALOR (o cliente vê só quantidade e total). Padrão: true. */
+  showUnitPrice?: boolean
 }
 
 const W = 1132
@@ -55,6 +57,12 @@ const COLS = [
   { x: 373, w: 277 },
   { x: 659, w: 168 },
   { x: 836, w: 182 },
+]
+// Sem o valor unitário: PRODUTO | QUANT. | TOTAL (a tabela ocupa a mesma largura)
+const COLS_NO_UNIT = [
+  { x: 94, w: 440 },
+  { x: 543, w: 215 },
+  { x: 767, w: 251 },
 ]
 
 const money = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -207,7 +215,9 @@ export async function buildPdf(d: PdfData) {
     }),
   )
 
-  const colTextW = COLS[0].w - 32
+  const showUnit = d.showUnitPrice !== false
+  const cols = showUnit ? COLS : COLS_NO_UNIT
+  const colTextW = cols[0].w - 32
   const THUMB = 62
   const rows: Row[] = items.map((it, idx) => {
     const img = thumbs[idx]
@@ -273,15 +283,24 @@ export async function buildPdf(d: PdfData) {
 
     // cabecera de la tabla
     const hy = first ? 517 : 100
-    pill(803, hy, 230, 46, PINK, 2)
-    pill(640, hy, 206, 46, YELLOW, 2)
-    pill(440, hy, 235, 46, PINK, 2)
-    pill(98, hy, 378, 46, YELLOW, 2)
     const hs = { size: 24, font: 'PoppinsBold' as Font, cs: 4, align: 'center' as const }
-    text('PRODUTO', 287, hy + 23, hs)
-    text('QUANT.', 566, hy + 23, hs)
-    text('VALOR', 745, hy + 23, hs)
-    text('TOTAL', 925, hy + 23, hs)
+    if (showUnit) {
+      pill(803, hy, 230, 46, PINK, 2)
+      pill(640, hy, 206, 46, YELLOW, 2)
+      pill(440, hy, 235, 46, PINK, 2)
+      pill(98, hy, 378, 46, YELLOW, 2)
+      text('PRODUTO', 287, hy + 23, hs)
+      text('QUANT.', 566, hy + 23, hs)
+      text('VALOR', 745, hy + 23, hs)
+      text('TOTAL', 925, hy + 23, hs)
+    } else {
+      pill(745, hy, 288, 46, YELLOW, 2)
+      pill(520, hy, 270, 46, PINK, 2)
+      pill(98, hy, 462, 46, YELLOW, 2)
+      text('PRODUTO', 310, hy + 23, hs)
+      text('QUANT.', 650, hy + 23, hs)
+      text('TOTAL', 892, hy + 23, hs)
+    }
 
     // pie con teléfono e Instagram
     pill(22, 1483, 1088, 44, PINK, 2)
@@ -304,21 +323,22 @@ export async function buildPdf(d: PdfData) {
     doc.setFillColor(CELL)
     doc.setDrawColor(INK)
     doc.setLineWidth(1.6 * K)
-    for (const c of COLS) doc.rect(c.x * K, y * K, c.w * K, r.h * K, 'FD')
+    for (const c of cols) doc.rect(c.x * K, y * K, c.w * K, r.h * K, 'FD')
     const mid = y + r.h / 2
     if (r.img) {
       const ty = y + (r.h - THUMB) / 2
-      doc.addImage(r.img, 'JPEG', (COLS[0].x + 10) * K, ty * K, THUMB * K, THUMB * K)
+      doc.addImage(r.img, 'JPEG', (cols[0].x + 10) * K, ty * K, THUMB * K, THUMB * K)
       doc.setDrawColor(INK)
       doc.setLineWidth(1.6 * K)
-      doc.roundedRect((COLS[0].x + 10) * K, ty * K, THUMB * K, THUMB * K, 6 * K, 6 * K, 'S')
+      doc.roundedRect((cols[0].x + 10) * K, ty * K, THUMB * K, THUMB * K, 6 * K, 6 * K, 'S')
     }
     const lh = r.img ? 25 : 27
-    const tx = COLS[0].x + (r.img ? 10 + THUMB + 10 : 16)
+    const tx = cols[0].x + (r.img ? 10 + THUMB + 10 : 16)
     r.lines.forEach((ln, i) => text(ln, tx, mid + (i - (r.lines.length - 1) / 2) * lh, { size: r.img ? 19 : 21, color: MUTED }))
-    if (r.qty) text(r.qty, COLS[1].x + COLS[1].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
-    if (r.unit) text(r.unit, COLS[2].x + COLS[2].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
-    if (r.total) text(r.total, COLS[3].x + COLS[3].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
+    const last = cols[cols.length - 1]
+    if (r.qty) text(r.qty, cols[1].x + cols[1].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
+    if (showUnit && r.unit) text(r.unit, cols[2].x + cols[2].w / 2, mid, { size: 21, color: MUTED, align: 'center' })
+    if (r.total) text(r.total, last.x + last.w / 2, mid, { size: 21, color: MUTED, align: 'center' })
   }
 
   const closing = () => {

@@ -6,7 +6,7 @@ import { useToast } from './Toast'
 import { friendlyError } from './errors'
 import { brl, formatDate, num } from './format'
 import { marginTone, pct } from './pricing'
-import { QUOTE_STATUS, pdfDataFor, pdfFileName } from './docs'
+import { QUOTE_STATUS, pdfDataFor, pdfFileName, quoteDeleteMessage } from './docs'
 import { downloadPdf } from './pdf'
 import { Dialog } from './Dialog'
 import { PaymentTermsField, usePaymentMethods } from './PaymentTerms'
@@ -75,13 +75,23 @@ export function QuoteDetail() {
 
   async function remove() {
     if (!quote) return
-    if (!window.confirm(`Excluir o orçamento #${String(quote.number).padStart(2, '0')} para sempre? Isso não pode ser desfeito.`)) return
+    if (!window.confirm(quoteDeleteMessage(quote.number, quote.status === 'APPROVED'))) return
     setBusy(true)
     const { error } = await supabase.rpc('delete_quote', { p_quote_id: quote.id })
     setBusy(false)
     if (error) return toast(friendlyError(error), 'error')
     toast('Orçamento excluído')
     navigate('/orcamentos')
+  }
+
+  async function setUnitPrice(show: boolean) {
+    if (!quote) return
+    setQuote({ ...quote, show_unit_price: show })
+    const { error } = await supabase.rpc('set_quote_show_unit_price', { p_quote_id: quote.id, p_show: show })
+    if (error) {
+      toast(friendlyError(error), 'error')
+      await load()
+    }
   }
 
   async function savePay() {
@@ -99,7 +109,7 @@ export function QuoteDetail() {
     if (!quote || !company) return
     setPdfBusy(true)
     try {
-      await downloadPdf(pdfDataFor('ORCAMENTO', company, customer, quote, items, quote.payment_terms), pdfFileName('ORCAMENTO', quote.number, customer))
+      await downloadPdf(pdfDataFor('ORCAMENTO', company, customer, quote, items, quote.payment_terms, quote.show_unit_price !== false), pdfFileName('ORCAMENTO', quote.number, customer))
     } catch (err) {
       toast(`Não consegui gerar o PDF. ${friendlyError(err)}`, 'error')
     } finally {
@@ -201,6 +211,15 @@ export function QuoteDetail() {
         </ul>
       </section>
 
+      <section className="panel">
+        <h2 className="section-title">PDF do orçamento</h2>
+        <label className="check">
+          <input type="checkbox" checked={quote.show_unit_price !== false} onChange={(e) => void setUnitPrice(e.target.checked)} />
+          Mostrar o valor unitário de cada item
+        </label>
+        <p className="hint">Desmarque para o cliente ver só a quantidade e o total de cada item. A fatura do pedido segue a mesma escolha.</p>
+      </section>
+
       <Dialog open={payOpen} onClose={() => setPayOpen(false)} title="Forma de pagamento">
         <PaymentTermsField value={payText} onChange={setPayText} methods={pay.methods} reload={pay.reload} />
         <div className="dialog-actions">
@@ -251,13 +270,11 @@ export function QuoteDetail() {
         ) : (
           <p className="muted">Este orçamento está {st.label.toLowerCase()}.</p>
         )}
-        {!orderId && (
-          <div className="block-add" style={{ marginTop: 14 }}>
-            <button className="btn btn-danger" disabled={busy} onClick={() => void remove()}>
-              Excluir orçamento
-            </button>
-          </div>
-        )}
+        <div className="block-add" style={{ marginTop: 14 }}>
+          <button className="btn btn-danger" disabled={busy} onClick={() => void remove()}>
+            Excluir orçamento
+          </button>
+        </div>
       </section>
     </>
   )

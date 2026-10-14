@@ -6,7 +6,7 @@ import { useToast } from './Toast'
 import { friendlyError } from './errors'
 import { brl, formatDate } from './format'
 import { pct } from './pricing'
-import { QUOTE_STATUS } from './docs'
+import { QUOTE_STATUS, quoteDeleteMessage } from './docs'
 import type { Customer, Quote, QuoteStatus } from './types'
 
 export function Quotes() {
@@ -38,7 +38,7 @@ export function Quotes() {
 
   async function remove(x: Quote, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!window.confirm(`Excluir o orçamento #${String(x.number).padStart(2, '0')} para sempre? Isso não pode ser desfeito.`)) return
+    if (!window.confirm(quoteDeleteMessage(x.number, x.status === 'APPROVED'))) return
     const { error } = await supabase.rpc('delete_quote', { p_quote_id: x.id })
     if (error) return toast(friendlyError(error), 'error')
     toast('Orçamento excluído')
@@ -117,11 +117,9 @@ export function Quotes() {
                       <span className={`pill-status tone-${st.tone}`}>{st.label}</span>
                     </td>
                     <td data-label="">
-                      {x.status !== 'APPROVED' && (
-                        <button className="link-btn" onClick={(e) => void remove(x, e)}>
-                          Excluir
-                        </button>
-                      )}
+                      <button className="link-btn" onClick={(e) => void remove(x, e)}>
+                        Excluir
+                      </button>
                     </td>
                   </tr>
                 )
